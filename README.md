@@ -1,73 +1,54 @@
-# React + TypeScript + Vite
+English | [Japanese](README-ja.md)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# yomi - Nostr TTS Reader
+A Nostr client that reads out the posts using text-to-speech.
 
-Currently, two official plugins are available:
+## for Users
+### Usage
+1. Open the app in your browser
+2. Your pubkey will be loaded automatically if you have a NIP-07 extension
+3. Or enter your pubkey (hex or npub format) manually
+4. Click "Start" to begin reading posts from your follows
+5. Use "Pause", "Skip", "Stop" buttons to control playback
+6. Type a message and click "Post" to publish a note (requires NIP-07)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Requirements
+#### Windows/Mac/iOS/Android
+- A modern browser (Chrome, Firefox, Safari, Edge)
+- NIP-07 browser extension (e.g., nos2x, Alby) to read pubkey automatically and sign posts
 
-## React Compiler
+#### Linux
+- A modern browser with Web Speech API support
+- NIP-07 browser extension
+- Speech synthesis voices installed:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Ubuntu/Debian:
+```bash
+sudo apt install speech-dispatcher speech-dispatcher-espeak-ng espeak-ng
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Arch:
+```bash
+sudo pacman -S speech-dispatcher espeak-ng
 ```
+
+## for Developers
+### Requirements
+- Node.js 18+
+- npm
+
+### Build
+```bash
+npm install
+npm run build
+```
+
+### Run
+```bash
+npm run dev
+```
+Open http://localhost:5173 in your browser.
+
+## License
+- This project: [MIT License](LICENSE)
+- Third-party libraries: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)
