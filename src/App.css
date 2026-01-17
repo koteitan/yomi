@@ -161,17 +161,76 @@
   background: #b46a5a;
 }
 
+.post-area {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  align-items: flex-end;
+}
+
+.post-textarea {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid #d4c4b5;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  background: #fff;
+  color: #4a3f35;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.post-textarea:focus {
+  outline: none;
+  border-color: #b89f8a;
+}
+
+.post-textarea:disabled {
+  background: #ebe5df;
+  color: #8a7d72;
+}
+
+.btn-post {
+  background: #7a9f6a;
+  color: #fff;
+  align-self: flex-end;
+}
+
+.btn-post:hover:not(:disabled) {
+  background: #6a8f5a;
+}
+
+.btn-mic {
+  background: #d4c4b5;
+  color: #4a3f35;
+  font-size: 18px;
+  padding: 10px 14px;
+}
+
+.btn-mic:hover:not(:disabled) {
+  background: #c4b4a5;
+}
+
+.btn-mic-active {
+  background: #c47a6a;
+  color: #fff;
+}
+
+.btn-mic-active:hover:not(:disabled) {
+  background: #b46a5a;
+}
+
 .status {
   background: #faf8f5;
   border: 2px solid #e8e0d8;
   border-radius: 12px;
-  padding: 16px;
+  padding: 2px 16px;
 }
 
 .queue-status {
   color: #6a5d52;
   font-size: 14px;
-  margin-bottom: 12px;
 }
 
 .current-note {

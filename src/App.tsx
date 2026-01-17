@@ -8,6 +8,7 @@ import {
   fetchFollowList,
   fetchProfiles,
   subscribeToNotes,
+  publishNote,
 } from './nostr';
 import type { Profile, NoteEvent } from './nostr';
 import { SpeechManager, processTextForSpeech } from './speech';
@@ -31,6 +32,11 @@ function App() {
   const [notes, setNotes] = useState<NoteWithRead[]>([]);
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
+  const [postContent, setPostContent] = useState('');
+  const [isPosting, setIsPosting] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+
+  const recognitionRef = useRef<{ stop(): void } | null>(null);
 
   const speechManager = useRef<SpeechManager | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -239,6 +245,60 @@ function App() {
     isProcessingRef.current = false;
   };
 
+  const handlePost = async () => {
+    if (!postContent.trim() || isPosting) return;
+    if (relaysRef.current.length === 0) return;
+
+    setIsPosting(true);
+    const success = await publishNote(postContent, relaysRef.current);
+    if (success) {
+      setPostContent('');
+    }
+    setIsPosting(false);
+  };
+
+  const handleSpeechRecognition = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error('Speech recognition not supported');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = navigator.language || 'ja-JP';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[event.resultIndex][0].transcript;
+      setPostContent((prev) => prev + transcript);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      // no-speech is not a real error, just means silence detected
+      if (event.error === 'no-speech') {
+        console.log('[speech recognition] no speech detected, continuing...');
+        return;
+      }
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
+
   const isRunning = appState === 'running' || appState === 'paused';
   const unreadCount = notes.filter((n) => !n.read).length;
   const readCount = notes.filter((n) => n.read).length;
@@ -279,39 +339,60 @@ function App() {
                   </span>
                 </>
               )}
+              <button
+                onClick={handleStart}
+                disabled={!pubkeyInput || appState === 'loading' || isRunning}
+                className="btn btn-start"
+              >
+                {appState === 'loading' ? t('loading') : t('start')}
+              </button>
             </>
           )}
         </div>
 
-        <div className="button-row">
-          {!isRunning ? (
-            <button
-              onClick={handleStart}
-              disabled={!pubkeyInput || appState === 'loading'}
-              className="btn btn-start"
-            >
-              {appState === 'loading' ? t('loading') : t('start')}
-            </button>
-          ) : (
-            <>
-              {appState === 'running' ? (
-                <button onClick={handlePause} className="btn btn-pause">
-                  {t('pause')}
-                </button>
-              ) : (
-                <button onClick={handleResume} className="btn btn-resume">
-                  {t('resume')}
-                </button>
-              )}
-              <button onClick={handleSkip} className="btn btn-skip">
-                {t('skip')}
-              </button>
-              <button onClick={handleStop} className="btn btn-stop">
-                Stop
-              </button>
-            </>
-          )}
+        <div className="post-area">
+          <textarea
+            className="post-textarea"
+            value={postContent}
+            onChange={(e) => setPostContent(e.target.value)}
+            placeholder={t('postPlaceholder')}
+            disabled={isPosting || relaysRef.current.length === 0}
+          />
+          <button
+            className={`btn btn-mic ${isListening ? 'btn-mic-active' : ''}`}
+            onClick={handleSpeechRecognition}
+            disabled={isPosting}
+          >
+            {isListening ? '...' : '🎤'}
+          </button>
+          <button
+            className="btn btn-post"
+            onClick={handlePost}
+            disabled={!postContent.trim() || isPosting || relaysRef.current.length === 0}
+          >
+            {isPosting ? 'Posting...' : 'Post'}
+          </button>
         </div>
+
+        {isRunning && (
+          <div className="button-row">
+            {appState === 'running' ? (
+              <button onClick={handlePause} className="btn btn-pause">
+                {t('pause')}
+              </button>
+            ) : (
+              <button onClick={handleResume} className="btn btn-resume">
+                {t('resume')}
+              </button>
+            )}
+            <button onClick={handleSkip} className="btn btn-skip">
+              {t('skip')}
+            </button>
+            <button onClick={handleStop} className="btn btn-stop">
+              Stop
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="status">

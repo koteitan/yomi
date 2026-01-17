@@ -339,10 +339,6 @@ export function subscribeToNotes(
     next: (packet) => {
       const event = packet.event;
       if (event.kind === 1) {
-        // Skip replies (has 'e' tag)
-        const hasReplyTag = event.tags.some((tag) => tag[0] === 'e');
-        if (hasReplyTag) return;
-
         onNote({
           id: event.id,
           pubkey: event.pubkey,
@@ -363,6 +359,34 @@ export function subscribeToNotes(
     finishSub(subIdx);
     subscription.unsubscribe();
   };
+}
+
+export async function publishNote(content: string, relays: string[]): Promise<boolean> {
+  if (!window.nostr) {
+    console.error('NIP-07 not available');
+    return false;
+  }
+
+  try {
+    const event = {
+      kind: 1,
+      content,
+      tags: [],
+      created_at: Math.floor(Date.now() / 1000),
+    };
+
+    const signedEvent = await window.nostr.signEvent(event);
+    console.log('[publish] signed event:', signedEvent.id);
+
+    rxNostr.setDefaultRelays(relays);
+    rxNostr.send(signedEvent);
+    console.log('[publish] sent to relays');
+
+    return true;
+  } catch (error) {
+    console.error('[publish] error:', error);
+    return false;
+  }
 }
 
 export function cleanup() {

@@ -17,6 +17,7 @@ const resources = {
       eose: 'EOSE!',
       nostrAddress: 'Nostr address',
       url: 'URL',
+      postPlaceholder: 'type your message',
     },
   },
   ja: {
@@ -33,6 +34,7 @@ const resources = {
       eose: 'イーオーエスイー',
       nostrAddress: 'ノスターアドレス',
       url: 'URL',
+      postPlaceholder: 'メッセージを入力してください',
     },
   },
 };
