@@ -30,7 +30,7 @@ const resources = {
       currentlyReading: '読み上げ中:',
       noNip07: 'NIP-07拡張機能が見つかりません。pubkeyを手動で入力してください。',
       loading: '読み込み中...',
-      eose: 'イオス！',
+      eose: 'イーオーエスイー',
       nostrAddress: 'ノスターアドレス',
       url: 'URL',
     },

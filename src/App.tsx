@@ -23,6 +23,8 @@ function App() {
   const { t } = useTranslation();
 
   const [pubkeyInput, setPubkeyInput] = useState('');
+  const [nip07Loading, setNip07Loading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [appState, setAppState] = useState<AppState>('idle');
   const [notes, setNotes] = useState<NoteWithRead[]>([]);
@@ -32,6 +34,8 @@ function App() {
   const speechManager = useRef<SpeechManager | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const relaysRef = useRef<string[]>([]);
+  const readingCountRef = useRef(0);
+  const isProcessingRef = useRef(false);
 
   // Initialize speech manager
   useEffect(() => {
@@ -44,7 +48,10 @@ function App() {
   // Load NIP-07 pubkey on mount
   useEffect(() => {
     const loadNip07 = async () => {
+      // Small delay to ensure loading message is visible
+      await new Promise((resolve) => setTimeout(resolve, 100));
       const pubkey = await getNip07Pubkey();
+      setNip07Loading(false);
       if (pubkey) {
         setPubkeyInput(pubkey);
         loadProfile(pubkey);
@@ -57,10 +64,12 @@ function App() {
     const hexPubkey = parseHexOrNpub(pubkey);
     if (!hexPubkey) return;
 
+    setProfileLoading(true);
     const relays = await fetchRelayList(hexPubkey);
     relaysRef.current = relays;
     const profileData = await fetchProfile(hexPubkey, relays);
     setProfile(profileData);
+    setProfileLoading(false);
   };
 
   const handlePubkeyBlur = () => {
@@ -73,13 +82,16 @@ function App() {
   };
 
   const processNextNote = useCallback(() => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     setNotes((currentNotes) => {
-      const unreadIndex = currentNotes.findIndex((n) => !n.read);
+      // Find last unread note (oldest, since newer notes are at front)
+      const unreadIndex = currentNotes.findLastIndex((n) => !n.read);
       if (unreadIndex === -1) {
-        // All notes read, say EOSE
-        speechManager.current?.speak(t('eose'), () => {
-          setCurrentNoteId(null);
-        });
+        // All notes read, wait a bit then say EOSE if still empty
+        isProcessingRef.current = false;
+        setCurrentNoteId(null);
         return currentNotes;
       }
 
@@ -98,7 +110,11 @@ function App() {
 
       const fullText = `${authorName}: ${processedText}`;
 
+      const noteNo = ++readingCountRef.current;
+      console.log(`[reading]#${noteNo}:${note.content.slice(0, 50)}${note.content.length > 50 ? '...' : ''}`);
       speechManager.current?.speak(fullText, () => {
+        console.log(`[done   ]#${noteNo}`);
+        isProcessingRef.current = false;
         processNextNote();
       });
 
@@ -141,10 +157,11 @@ function App() {
           if (prev.some((n) => n.id === note.id)) {
             return prev;
           }
-          const newNotes = [...prev, { ...note, read: false }];
-          // Keep only last 200 notes
+          // Prepend new notes (newer at top)
+          const newNotes = [{ ...note, read: false }, ...prev];
+          // Keep only first 200 notes (newest)
           if (newNotes.length > 200) {
-            return newNotes.slice(-200);
+            return newNotes.slice(0, 200);
           }
           return newNotes;
         });
@@ -160,7 +177,7 @@ function App() {
 
   // Start processing when running and not currently speaking
   useEffect(() => {
-    if (appState === 'running' && !speechManager.current?.speaking && !currentNoteId) {
+    if (appState === 'running' && !isProcessingRef.current && !currentNoteId) {
       const unreadCount = notes.filter((n) => !n.read).length;
       if (unreadCount > 0) {
         const timer = setTimeout(() => {
@@ -196,10 +213,13 @@ function App() {
     setAppState('idle');
     setNotes([]);
     setCurrentNoteId(null);
+    readingCountRef.current = 0;
+    isProcessingRef.current = false;
   };
 
   const isRunning = appState === 'running' || appState === 'paused';
   const unreadCount = notes.filter((n) => !n.read).length;
+  const readCount = notes.filter((n) => n.read).length;
 
   return (
     <div className="app">
@@ -209,21 +229,33 @@ function App() {
 
       <div className="controls">
         <div className="pubkey-row">
-          <input
-            type="text"
-            className="pubkey-input"
-            value={pubkeyInput}
-            onChange={(e) => setPubkeyInput(e.target.value)}
-            onBlur={handlePubkeyBlur}
-            placeholder={t('pubkeyPlaceholder')}
-            disabled={isRunning}
-          />
-          {profile?.picture && (
-            <img src={profile.picture} alt="" className="profile-icon" />
+          {nip07Loading ? (
+            <span className="nip07-loading">reading NIP-07 pubkey...</span>
+          ) : (
+            <>
+              <input
+                type="text"
+                className="pubkey-input"
+                value={pubkeyInput}
+                onChange={(e) => setPubkeyInput(e.target.value)}
+                onBlur={handlePubkeyBlur}
+                placeholder={t('pubkeyPlaceholder')}
+                disabled={isRunning}
+              />
+              {profileLoading ? (
+                <span className="nip07-loading">loading profile...</span>
+              ) : (
+                <>
+                  {profile?.picture && (
+                    <img src={profile.picture} alt="" className="profile-icon" />
+                  )}
+                  <span className="profile-name">
+                    {profile?.display_name || profile?.name || ''}
+                  </span>
+                </>
+              )}
+            </>
           )}
-          <span className="profile-name">
-            {profile?.display_name || profile?.name || ''}
-          </span>
         </div>
 
         <div className="button-row">
@@ -259,7 +291,7 @@ function App() {
 
       <div className="status">
         <div className="queue-status">
-          {t('queueStatus', { count: unreadCount })} / {notes.length} notes
+          read: {readCount} events, in queue: {unreadCount} events
         </div>
       </div>
 

@@ -131,6 +131,7 @@ export async function fetchProfile(pubkey: string, relays: string[]): Promise<Pr
     let profile: Profile = { pubkey };
     let latestCreatedAt = 0;
     let resolved = false;
+    let shortTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const useRelays = [...BOOTSTRAP_RELAYS, ...relays];
     const filter = { kinds: [0], authors: [pubkey], limit: 1 };
@@ -139,6 +140,7 @@ export async function fetchProfile(pubkey: string, relays: string[]): Promise<Pr
     const doResolve = () => {
       if (!resolved) {
         resolved = true;
+        if (shortTimeoutId) clearTimeout(shortTimeoutId);
         finishSub(subIdx);
         resolve(profile);
       }
@@ -160,6 +162,13 @@ export async function fetchProfile(pubkey: string, relays: string[]): Promise<Pr
               display_name: content.display_name,
               picture: content.picture,
             };
+            // Start short timeout after first result
+            if (!shortTimeoutId) {
+              shortTimeoutId = setTimeout(() => {
+                req.over();
+                doResolve();
+              }, 1000);
+            }
           } catch {
             // Invalid JSON
           }

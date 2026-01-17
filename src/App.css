@@ -70,6 +70,12 @@
   font-size: 15px;
 }
 
+.nip07-loading {
+  color: #8a7d72;
+  font-size: 14px;
+  padding: 10px 0;
+}
+
 .button-row {
   display: flex;
   gap: 10px;

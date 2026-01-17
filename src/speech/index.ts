@@ -55,13 +55,17 @@ export class SpeechManager {
 
     this.onEndCallback = onEnd || null;
 
+    console.log('[speech]start:', text.slice(0, 50));
+
     utterance.onend = () => {
+      console.log('[speech]onend');
       if (this.onEndCallback) {
         this.onEndCallback();
       }
     };
 
     utterance.onerror = (event) => {
+      console.log('[speech]onerror:', event.error);
       if (event.error !== 'interrupted' && event.error !== 'canceled') {
         console.error('Speech error:', event.error);
       }
@@ -72,6 +76,7 @@ export class SpeechManager {
 
     this.isPaused = false;
     this.synth.speak(utterance);
+    console.log('[speech]queued, speaking:', this.synth.speaking, 'pending:', this.synth.pending);
   }
 
   pause(): void {
