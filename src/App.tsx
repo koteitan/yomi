@@ -11,6 +11,7 @@ import {
 } from './nostr';
 import type { Profile, NoteEvent } from './nostr';
 import { SpeechManager, processTextForSpeech } from './speech';
+import { VERSION, GITHUB_URL } from './version';
 import './App.css';
 
 type AppState = 'idle' | 'loading' | 'running' | 'paused';
@@ -139,6 +140,9 @@ function App() {
     const hexPubkey = parseHexOrNpub(pubkeyInput);
     if (!hexPubkey) return;
 
+    // Unlock speech on iOS (must be called on user interaction)
+    speechManager.current?.unlock();
+
     setAppState('loading');
     notesRef.current = [];
     setNotes([]);
@@ -243,6 +247,9 @@ function App() {
     <div className="app">
       <div className="header">
         <h1>yomi</h1>
+        <div className="version">
+          v{VERSION} | <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
       </div>
 
       <div className="controls">

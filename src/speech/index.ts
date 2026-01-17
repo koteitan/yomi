@@ -42,9 +42,20 @@ export class SpeechManager {
   private synth: SpeechSynthesis;
   private isPaused = false;
   private onEndCallback: (() => void) | null = null;
+  private isUnlocked = false;
 
   constructor() {
     this.synth = window.speechSynthesis;
+  }
+
+  // Call this on user interaction to unlock audio on iOS
+  unlock(): void {
+    if (this.isUnlocked) return;
+    const utterance = new SpeechSynthesisUtterance('');
+    utterance.volume = 0;
+    this.synth.speak(utterance);
+    this.isUnlocked = true;
+    console.log('[speech]unlocked');
   }
 
   speak(text: string, onEnd?: () => void): void {

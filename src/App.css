@@ -16,6 +16,21 @@
   margin: 0;
 }
 
+.version {
+  color: #8a7d72;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.version a {
+  color: #8a7d72;
+  text-decoration: none;
+}
+
+.version a:hover {
+  text-decoration: underline;
+}
+
 .controls {
   background: #f5f0eb;
   border-radius: 12px;
