@@ -436,7 +436,7 @@ function App() {
                 <span className="nip07-loading">loading profile...</span>
               ) : (
                 <>
-                  {profile?.picture && (
+                  {profile?.picture && /^https?:\/\//i.test(profile.picture) && (
                     <img src={profile.picture} alt="" className="profile-icon" />
                   )}
                   <span className="profile-name">
