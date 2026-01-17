@@ -47,8 +47,8 @@
 }
 
 .pubkey-input {
-  flex: 1;
-  min-width: 200px;
+  width: 50%;
+  min-width: 150px;
   padding: 10px 14px;
   border: 2px solid #d4c4b5;
   border-radius: 8px;
@@ -119,6 +119,7 @@
 .btn-start {
   background: #c4946a;
   color: #fff;
+  margin-left: auto;
 }
 
 .btn-start:hover:not(:disabled) {
@@ -289,7 +290,7 @@
 }
 
 .note-item.current {
-  background: #e8dfd5;
+  background: #fff;
   border-left: 3px solid #c4946a;
 }
 
@@ -310,4 +311,66 @@
 
 .note-item.read .note-content {
   color: #a89888;
+}
+
+.note-item.current .note-author {
+  color: #000;
+}
+
+.note-item.current .note-content {
+  color: #000;
+}
+
+/* Mobile styles */
+@media (max-width: 480px) {
+  .app {
+    padding: 12px;
+  }
+
+  .header h1 {
+    font-size: 1.5rem;
+  }
+
+  .controls {
+    padding: 12px;
+  }
+
+  .pubkey-input {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+
+  .profile-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .profile-name {
+    font-size: 13px;
+  }
+
+  .btn {
+    font-size: 12px;
+    padding: 8px 14px;
+  }
+
+  .post-textarea {
+    font-size: 12px;
+    height: 34px;
+    padding: 6px 10px;
+  }
+
+  .btn-mic,
+  .btn-post {
+    min-width: 56px;
+  }
+
+  .queue-status {
+    font-size: 12px;
+  }
+
+  .note-item {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
 }

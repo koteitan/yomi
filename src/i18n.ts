@@ -58,6 +58,10 @@ i18n
     interpolation: {
       escapeValue: false,
     },
+    detection: {
+      order: ['querystring', 'navigator', 'htmlTag'],
+      lookupQuerystring: 'lang',
+    },
   });
 
 export default i18n;

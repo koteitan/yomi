@@ -323,7 +323,7 @@ export async function fetchProfiles(
 export function subscribeToNotes(
   followList: string[],
   relays: string[],
-  onNote: (note: NoteEvent) => void
+  onNote: (note: NoteEvent, shouldReplace: boolean) => void
 ): () => void {
   // Build filters for tracking
   const filters: object[] = [];
@@ -335,18 +335,45 @@ export function subscribeToNotes(
 
   rxNostr.setDefaultRelays(relays);
 
+  let eoseReceived = false;
+  let newestNoteBeforeEose: NoteEvent | null = null;
+  let eoseTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  const markEoseReceived = () => {
+    if (!eoseReceived) {
+      eoseReceived = true;
+      log('[subscribe] EOSE timeout reached');
+    }
+  };
+
   const req = createRxForwardReq();
   const subscription = rxNostr.use(req).subscribe({
     next: (packet) => {
       const event = packet.event;
       if (event.kind === 1) {
-        onNote({
+        const note: NoteEvent = {
           id: event.id,
           pubkey: event.pubkey,
           content: event.content,
           created_at: event.created_at,
           tags: event.tags,
-        });
+        };
+
+        if (!eoseReceived) {
+          // Before EOSE: only keep the newest note
+          if (!newestNoteBeforeEose || note.created_at > newestNoteBeforeEose.created_at) {
+            newestNoteBeforeEose = note;
+            onNote(note, true); // shouldReplace = true
+          }
+          // Start/reset EOSE timeout (1 second after first event)
+          if (eoseTimeout) {
+            clearTimeout(eoseTimeout);
+          }
+          eoseTimeout = setTimeout(markEoseReceived, 1000);
+        } else {
+          // After EOSE: normal behavior
+          onNote(note, false);
+        }
       }
     },
   });
@@ -357,6 +384,9 @@ export function subscribeToNotes(
   }
 
   return () => {
+    if (eoseTimeout) {
+      clearTimeout(eoseTimeout);
+    }
     finishSub(subIdx);
     subscription.unsubscribe();
   };

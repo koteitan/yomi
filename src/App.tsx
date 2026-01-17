@@ -188,16 +188,24 @@ function App() {
 
       // Subscribe to kind:1 notes
       log('[start] subscribing to notes...');
-      const unsubscribe = subscribeToNotes(followList, relays, (note) => {
+      const unsubscribe = subscribeToNotes(followList, relays, (note, shouldReplace) => {
         // Skip if already exists
         if (notesRef.current.some((n) => n.id === note.id)) {
           return;
         }
-        // Prepend new notes (newer at top)
-        let newNotes = [{ ...note, read: false }, ...notesRef.current];
-        // Keep only first 200 notes (newest)
-        if (newNotes.length > 200) {
-          newNotes = newNotes.slice(0, 200);
+
+        let newNotes: NoteWithRead[];
+        if (shouldReplace) {
+          // Before EOSE: replace all unread notes with this one
+          const readNotes = notesRef.current.filter((n) => n.read);
+          newNotes = [{ ...note, read: false }, ...readNotes];
+        } else {
+          // After EOSE: prepend new notes (newer at top)
+          newNotes = [{ ...note, read: false }, ...notesRef.current];
+          // Keep only first 200 notes (newest)
+          if (newNotes.length > 200) {
+            newNotes = newNotes.slice(0, 200);
+          }
         }
         notesRef.current = newNotes;
         setNotes(newNotes);
