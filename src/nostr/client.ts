@@ -2,6 +2,7 @@ import { createRxNostr, createRxBackwardReq, createRxForwardReq } from 'rx-nostr
 import { verifier } from 'rx-nostr-crypto';
 import type { Profile, NoteEvent } from './types';
 import { BOOTSTRAP_RELAYS, getFallbackRelays } from './constants';
+import { log } from '../utils';
 
 const rxNostr = createRxNostr({ verifier });
 
@@ -376,11 +377,11 @@ export async function publishNote(content: string, relays: string[]): Promise<bo
     };
 
     const signedEvent = await window.nostr.signEvent(event);
-    console.log('[publish] signed event:', signedEvent.id);
+    log('[publish] signed event:', signedEvent.id);
 
     rxNostr.setDefaultRelays(relays);
     rxNostr.send(signedEvent);
-    console.log('[publish] sent to relays');
+    log('[publish] sent to relays');
 
     return true;
   } catch (error) {

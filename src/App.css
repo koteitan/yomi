@@ -169,20 +169,21 @@
   display: flex;
   gap: 10px;
   margin-bottom: 12px;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .post-textarea {
   flex: 1;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border: 2px solid #d4c4b5;
   border-radius: 8px;
   font-size: 14px;
   font-family: inherit;
   background: #fff;
   color: #4a3f35;
-  resize: vertical;
-  min-height: 60px;
+  resize: none;
+  height: 38px;
+  box-sizing: border-box;
 }
 
 .post-textarea:focus {
@@ -198,7 +199,6 @@
 .btn-post {
   background: #7a9f6a;
   color: #fff;
-  align-self: flex-end;
   min-width: 70px;
 }
 

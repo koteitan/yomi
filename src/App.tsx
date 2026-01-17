@@ -14,6 +14,7 @@ import {
 import type { Profile, NoteEvent } from './nostr';
 import { SpeechManager, processTextForSpeech } from './speech';
 import { VERSION, GITHUB_URL } from './version';
+import { log } from './utils';
 import './App.css';
 
 type AppState = 'idle' | 'loading' | 'running' | 'paused';
@@ -45,6 +46,7 @@ function App() {
   const readingCountRef = useRef(0);
   const isProcessingRef = useRef(false);
   const notesRef = useRef<NoteWithRead[]>([]);
+  const appStateRef = useRef<AppState>('idle');
 
   // Initialize speech manager
   useEffect(() => {
@@ -53,6 +55,11 @@ function App() {
       speechManager.current?.stop();
     };
   }, []);
+
+  // Keep appStateRef in sync
+  useEffect(() => {
+    appStateRef.current = appState;
+  }, [appState]);
 
   // Load NIP-07 pubkey on mount
   useEffect(() => {
@@ -92,26 +99,26 @@ function App() {
 
   const processNextNote = useCallback(() => {
     if (isProcessingRef.current) {
-      console.log('[process] skipped (already processing)');
+      log('[process] skipped (already processing)');
       return;
     }
     isProcessingRef.current = true;
 
     const currentNotes = notesRef.current;
     const unreadCount = currentNotes.filter((n) => !n.read).length;
-    console.log('[process] unread:', unreadCount, 'total:', currentNotes.length);
+    log('[process] unread:', unreadCount, 'total:', currentNotes.length);
 
     // Find last unread note (oldest, since newer notes are at front)
     const unreadIndex = currentNotes.findLastIndex((n) => !n.read);
     if (unreadIndex === -1) {
       // All notes read
-      console.log('[process] no unread notes');
+      log('[process] no unread notes');
       isProcessingRef.current = false;
       setCurrentNoteId(null);
       return;
     }
 
-    console.log('[process] reading index:', unreadIndex);
+    log('[process] reading index:', unreadIndex);
     const noteToRead = currentNotes[unreadIndex];
 
     // Mark as read synchronously in ref
@@ -134,12 +141,14 @@ function App() {
     const fullText = `${authorName}: ${processedText}`;
 
     const noteNo = ++readingCountRef.current;
-    console.log(`[reading]#${noteNo}:${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
+    log(`[reading]#${noteNo}:${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
     speechManager.current?.speak(fullText, () => {
-      console.log(`[done   ]#${noteNo}`);
+      log(`[done   ]#${noteNo}`);
       isProcessingRef.current = false;
       setCurrentNoteId(null);
-      processNextNote();
+      if (appStateRef.current === 'running') {
+        processNextNote();
+      }
     });
   }, [profiles, t]);
 
@@ -157,28 +166,28 @@ function App() {
 
     try {
       // Fetch relay list
-      console.log('[start] fetching relay list...');
+      log('[start] fetching relay list...');
       const relays = await fetchRelayList(hexPubkey);
-      console.log('[start] relay list:', relays.length, 'relays');
+      log('[start] relay list:', relays.length, 'relays');
       relaysRef.current = relays;
 
       // Fetch follow list
-      console.log('[start] fetching follow list...');
+      log('[start] fetching follow list...');
       const followList = await fetchFollowList(hexPubkey, relays);
-      console.log('[start] follow list:', followList.length, 'follows');
+      log('[start] follow list:', followList.length, 'follows');
       if (followList.length === 0) {
         setAppState('idle');
         return;
       }
 
       // Fetch profiles of followees (don't await, let it run in background)
-      console.log('[start] fetching profiles (background)...');
+      log('[start] fetching profiles (background)...');
       fetchProfiles(followList, relays, (p) => {
         setProfiles((prev) => new Map(prev).set(p.pubkey, p));
       });
 
       // Subscribe to kind:1 notes
-      console.log('[start] subscribing to notes...');
+      log('[start] subscribing to notes...');
       const unsubscribe = subscribeToNotes(followList, relays, (note) => {
         // Skip if already exists
         if (notesRef.current.some((n) => n.id === note.id)) {
@@ -195,7 +204,7 @@ function App() {
       });
       unsubscribeRef.current = unsubscribe;
 
-      console.log('[start] running!');
+      log('[start] running!');
       setAppState('running');
     } catch (error) {
       console.error('Error starting:', error);
@@ -288,7 +297,7 @@ function App() {
     recognition.onerror = (event) => {
       // no-speech is not a real error, just means silence detected
       if (event.error === 'no-speech') {
-        console.log('[speech recognition] no speech detected, continuing...');
+        log('[speech recognition] no speech detected, continuing...');
         return;
       }
       console.error('Speech recognition error:', event.error);

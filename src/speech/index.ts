@@ -1,4 +1,5 @@
 import type { Profile } from '../nostr/types';
+import { log } from '../utils';
 
 // URL pattern
 const URL_PATTERN = /https?:\/\/[^\s]+/g;
@@ -55,7 +56,7 @@ export class SpeechManager {
     utterance.volume = 0;
     this.synth.speak(utterance);
     this.isUnlocked = true;
-    console.log('[speech]unlocked');
+    log('[speech]unlocked');
   }
 
   speak(text: string, onEnd?: () => void): void {
@@ -66,17 +67,17 @@ export class SpeechManager {
 
     this.onEndCallback = onEnd || null;
 
-    console.log('[speech]start:', text.slice(0, 50));
+    log('[speech]start:', text.slice(0, 50));
 
     utterance.onend = () => {
-      console.log('[speech]onend');
+      log('[speech]onend');
       if (this.onEndCallback) {
         this.onEndCallback();
       }
     };
 
     utterance.onerror = (event) => {
-      console.log('[speech]onerror:', event.error);
+      log('[speech]onerror:', event.error);
       if (event.error !== 'interrupted' && event.error !== 'canceled') {
         console.error('Speech error:', event.error);
       }
@@ -87,7 +88,7 @@ export class SpeechManager {
 
     this.isPaused = false;
     this.synth.speak(utterance);
-    console.log('[speech]queued, speaking:', this.synth.speaking, 'pending:', this.synth.pending);
+    log('[speech]queued, speaking:', this.synth.speaking, 'pending:', this.synth.pending);
   }
 
   pause(): void {
