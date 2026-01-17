@@ -357,13 +357,19 @@ function App() {
                   </span>
                 </>
               )}
-              <button
-                onClick={handleStart}
-                disabled={!pubkeyInput || appState === 'loading' || isRunning}
-                className="btn btn-start"
-              >
-                {appState === 'loading' ? t('loading') : t('start')}
-              </button>
+              {isRunning || appState === 'loading' ? (
+                <button onClick={handleStop} className="btn btn-stop">
+                  {t('stop')}
+                </button>
+              ) : (
+                <button
+                  onClick={handleStart}
+                  disabled={!pubkeyInput}
+                  className="btn btn-start"
+                >
+                  {t('start')}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -406,16 +412,15 @@ function App() {
             <button onClick={handleSkip} className="btn btn-skip">
               {t('skip')}
             </button>
-            <button onClick={handleStop} className="btn btn-stop">
-              {t('stop')}
-            </button>
           </div>
         )}
       </div>
 
       <div className="status">
         <div className="queue-status">
-          {t('statusRead', { count: readCount })}, {t('statusQueue', { count: unreadCount })}
+          {appState === 'loading'
+            ? t('loading')
+            : `${t('statusRead', { count: readCount })}, ${t('statusQueue', { count: unreadCount })}`}
         </div>
       </div>
 

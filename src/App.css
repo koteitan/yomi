@@ -119,6 +119,7 @@
 .btn-start {
   background: #c4946a;
   color: #fff;
+  min-width: 70px;
 }
 
 .btn-start:hover:not(:disabled) {
@@ -146,19 +147,19 @@
 }
 
 .btn-skip {
-  background: #a89888;
+  background: #8a7d72;
   color: #fff;
   flex: 1;
 }
 
 .btn-skip:hover {
-  background: #988878;
+  background: #7a6d62;
 }
 
 .btn-stop {
   background: #c47a6a;
   color: #fff;
-  flex: 1;
+  min-width: 70px;
 }
 
 .btn-stop:hover {
