@@ -1,0 +1,176 @@
+.app {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.header h1 {
+  color: #5c4a3d;
+  font-size: 2rem;
+  margin: 0;
+}
+
+.controls {
+  background: #f5f0eb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.pubkey-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.pubkey-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 14px;
+  border: 2px solid #d4c4b5;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  color: #4a3f35;
+}
+
+.pubkey-input:focus {
+  outline: none;
+  border-color: #b89f8a;
+}
+
+.pubkey-input:disabled {
+  background: #ebe5df;
+  color: #8a7d72;
+}
+
+.pubkey-input::placeholder {
+  color: #a89888;
+}
+
+.profile-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #d4c4b5;
+}
+
+.profile-name {
+  color: #5c4a3d;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-start {
+  background: #c4946a;
+  color: #fff;
+}
+
+.btn-start:hover:not(:disabled) {
+  background: #b38559;
+}
+
+.btn-pause {
+  background: #8a7d72;
+  color: #fff;
+}
+
+.btn-pause:hover {
+  background: #7a6d62;
+}
+
+.btn-resume {
+  background: #7a9f6a;
+  color: #fff;
+}
+
+.btn-resume:hover {
+  background: #6a8f5a;
+}
+
+.btn-skip {
+  background: #a89888;
+  color: #fff;
+}
+
+.btn-skip:hover {
+  background: #988878;
+}
+
+.btn-stop {
+  background: #c47a6a;
+  color: #fff;
+}
+
+.btn-stop:hover {
+  background: #b46a5a;
+}
+
+.status {
+  background: #faf8f5;
+  border: 2px solid #e8e0d8;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.queue-status {
+  color: #6a5d52;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.current-note {
+  border-top: 1px solid #e8e0d8;
+  padding-top: 12px;
+}
+
+.current-label {
+  color: #8a7d72;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.current-content {
+  color: #4a3f35;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.current-content strong {
+  color: #5c4a3d;
+}
