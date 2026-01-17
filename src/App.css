@@ -174,3 +174,56 @@
 .current-content strong {
   color: #5c4a3d;
 }
+
+.notes-list {
+  margin-top: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 2px solid #e8e0d8;
+  border-radius: 12px;
+  background: #faf8f5;
+}
+
+.note-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e8e0d8;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.note-item:last-child {
+  border-bottom: none;
+}
+
+.note-item.unread {
+  background: #fff;
+}
+
+.note-item.read {
+  background: #f0ebe5;
+  color: #8a7d72;
+}
+
+.note-item.current {
+  background: #e8dfd5;
+  border-left: 3px solid #c4946a;
+}
+
+.note-author {
+  color: #5c4a3d;
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+.note-item.read .note-author {
+  color: #8a7d72;
+}
+
+.note-content {
+  color: #4a3f35;
+  word-break: break-word;
+}
+
+.note-item.read .note-content {
+  color: #a89888;
+}

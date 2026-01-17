@@ -1,7 +1,6 @@
 export const BOOTSTRAP_RELAYS = [
   'wss://directory.yabu.me',
   'wss://purplepag.es',
-  'wss://relay.nostr.band',
   'wss://indexer.coracle.social',
 ];
 

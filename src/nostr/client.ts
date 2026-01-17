@@ -5,6 +5,60 @@ import { BOOTSTRAP_RELAYS, getFallbackRelays } from './constants';
 
 const rxNostr = createRxNostr({ verifier });
 
+// Subscription tracking for debugging
+interface SubRecord {
+  index: number;
+  type: 'forward' | 'backward';
+  status: 'active' | 'finished';
+  relays: string[];
+  filters: object[];
+}
+
+let subIndex = 0;
+const subHistory: SubRecord[] = [];
+
+function trackSub(type: 'forward' | 'backward', relays: string[], filters: object[]): number {
+  const index = subIndex++;
+  subHistory.push({ index, type, status: 'active', relays, filters });
+  return index;
+}
+
+function finishSub(index: number) {
+  const record = subHistory.find((s) => s.index === index);
+  if (record) {
+    record.status = 'finished';
+  }
+}
+
+function formatFilter(filter: object): string {
+  const entries = Object.entries(filter);
+  const trimmed = entries.slice(0, 3).map(([k, v]) => {
+    if (Array.isArray(v) && v.length > 3) {
+      return `${k}:[${v.slice(0, 3).join(',')},...(${v.length})]`;
+    }
+    return `${k}:${JSON.stringify(v)}`;
+  });
+  if (entries.length > 3) {
+    trimmed.push('...');
+  }
+  return `{${trimmed.join(', ')}}`;
+}
+
+export function dumpsub() {
+  console.log('=== Subscription History ===');
+  for (const sub of subHistory) {
+    const relaysStr = sub.relays.length > 3
+      ? `[${sub.relays.slice(0, 3).join(', ')}, ...(${sub.relays.length})]`
+      : `[${sub.relays.join(', ')}]`;
+    const filtersStr = sub.filters.map(formatFilter).join(', ');
+    console.log(`#${sub.index}:${sub.type}:${sub.status}:${relaysStr}:${filtersStr}`);
+  }
+  console.log(`=== Total: ${subHistory.length} subscriptions ===`);
+}
+
+// Expose to window for console debugging
+(window as any).dumpsub = dumpsub;
+
 export function addRelays(relays: string[]) {
   rxNostr.setDefaultRelays(relays);
 }
@@ -15,9 +69,13 @@ export async function fetchRelayList(pubkey: string): Promise<string[]> {
     let kind3Event: { created_at: number; relays: string[] } | null = null;
     let resolved = false;
 
+    const filter = { kinds: [10002, 3], authors: [pubkey], limit: 2 };
+    const subIdx = trackSub('backward', BOOTSTRAP_RELAYS, [filter]);
+
     const doResolve = () => {
       if (resolved) return;
       resolved = true;
+      finishSub(subIdx);
       if (kind10002Event && kind10002Event.relays.length > 0) {
         resolve(kind10002Event.relays);
       } else if (kind3Event && kind3Event.relays.length > 0) {
@@ -59,7 +117,7 @@ export async function fetchRelayList(pubkey: string): Promise<string[]> {
       },
     });
 
-    req.emit([{ kinds: [10002, 3], authors: [pubkey], limit: 2 }]);
+    req.emit([filter]);
 
     setTimeout(() => {
       req.over();
@@ -74,14 +132,19 @@ export async function fetchProfile(pubkey: string, relays: string[]): Promise<Pr
     let latestCreatedAt = 0;
     let resolved = false;
 
+    const useRelays = [...BOOTSTRAP_RELAYS, ...relays];
+    const filter = { kinds: [0], authors: [pubkey], limit: 1 };
+    const subIdx = trackSub('backward', useRelays, [filter]);
+
     const doResolve = () => {
       if (!resolved) {
         resolved = true;
+        finishSub(subIdx);
         resolve(profile);
       }
     };
 
-    rxNostr.setDefaultRelays([...BOOTSTRAP_RELAYS, ...relays]);
+    rxNostr.setDefaultRelays(useRelays);
 
     const req = createRxBackwardReq();
     rxNostr.use(req).subscribe({
@@ -107,7 +170,7 @@ export async function fetchProfile(pubkey: string, relays: string[]): Promise<Pr
       },
     });
 
-    req.emit([{ kinds: [0], authors: [pubkey], limit: 1 }]);
+    req.emit([filter]);
 
     setTimeout(() => {
       req.over();
@@ -122,14 +185,19 @@ export async function fetchFollowList(pubkey: string, relays: string[]): Promise
     let latestCreatedAt = 0;
     let resolved = false;
 
+    const useRelays = [...BOOTSTRAP_RELAYS, ...relays];
+    const filter = { kinds: [3], authors: [pubkey], limit: 1 };
+    const subIdx = trackSub('backward', useRelays, [filter]);
+
     const doResolve = () => {
       if (!resolved) {
         resolved = true;
+        finishSub(subIdx);
         resolve(followList);
       }
     };
 
-    rxNostr.setDefaultRelays([...BOOTSTRAP_RELAYS, ...relays]);
+    rxNostr.setDefaultRelays(useRelays);
 
     const req = createRxBackwardReq();
     rxNostr.use(req).subscribe({
@@ -147,7 +215,7 @@ export async function fetchFollowList(pubkey: string, relays: string[]): Promise
       },
     });
 
-    req.emit([{ kinds: [3], authors: [pubkey], limit: 1 }]);
+    req.emit([filter]);
 
     setTimeout(() => {
       req.over();
@@ -165,9 +233,18 @@ export async function fetchProfiles(
     const profiles = new Map<string, Profile>();
     let resolved = false;
 
+    // Build filters for tracking
+    const filters: object[] = [];
+    for (let i = 0; i < pubkeys.length; i += 200) {
+      const chunk = pubkeys.slice(i, i + 200);
+      filters.push({ kinds: [0], authors: chunk, limit: 200 });
+    }
+    const subIdx = trackSub('backward', relays, filters);
+
     const doResolve = () => {
       if (!resolved) {
         resolved = true;
+        finishSub(subIdx);
         resolve();
       }
     };
@@ -203,10 +280,9 @@ export async function fetchProfiles(
       },
     });
 
-    // Split into chunks of 200
-    for (let i = 0; i < pubkeys.length; i += 200) {
-      const chunk = pubkeys.slice(i, i + 200);
-      req.emit([{ kinds: [0], authors: chunk, limit: 200 }]);
+    // Emit all filters
+    for (const filter of filters) {
+      req.emit([filter as any]);
     }
 
     setTimeout(() => {
@@ -221,6 +297,14 @@ export function subscribeToNotes(
   relays: string[],
   onNote: (note: NoteEvent) => void
 ): () => void {
+  // Build filters for tracking
+  const filters: object[] = [];
+  for (let i = 0; i < followList.length; i += 1000) {
+    const chunk = followList.slice(i, i + 1000);
+    filters.push({ kinds: [1], authors: chunk, limit: 1 });
+  }
+  const subIdx = trackSub('forward', relays, filters);
+
   rxNostr.setDefaultRelays(relays);
 
   const req = createRxForwardReq();
@@ -243,13 +327,13 @@ export function subscribeToNotes(
     },
   });
 
-  // Split into chunks of 1000 authors
-  for (let i = 0; i < followList.length; i += 1000) {
-    const chunk = followList.slice(i, i + 1000);
-    req.emit([{ kinds: [1], authors: chunk }]);
+  // Emit all filters
+  for (const filter of filters) {
+    req.emit([filter as any]);
   }
 
   return () => {
+    finishSub(subIdx);
     subscription.unsubscribe();
   };
 }

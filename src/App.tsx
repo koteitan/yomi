@@ -15,14 +15,18 @@ import './App.css';
 
 type AppState = 'idle' | 'loading' | 'running' | 'paused';
 
+interface NoteWithRead extends NoteEvent {
+  read: boolean;
+}
+
 function App() {
   const { t } = useTranslation();
 
   const [pubkeyInput, setPubkeyInput] = useState('');
   const [profile, setProfile] = useState<Profile | null>(null);
   const [appState, setAppState] = useState<AppState>('idle');
-  const [queue, setQueue] = useState<NoteEvent[]>([]);
-  const [currentNote, setCurrentNote] = useState<NoteEvent | null>(null);
+  const [notes, setNotes] = useState<NoteWithRead[]>([]);
+  const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map());
 
   const speechManager = useRef<SpeechManager | null>(null);
@@ -68,24 +72,25 @@ function App() {
     }
   };
 
-  const processQueue = useCallback(() => {
-    setQueue((currentQueue) => {
-      if (currentQueue.length === 0) {
-        // Say EOSE
+  const processNextNote = useCallback(() => {
+    setNotes((currentNotes) => {
+      const unreadIndex = currentNotes.findIndex((n) => !n.read);
+      if (unreadIndex === -1) {
+        // All notes read, say EOSE
         speechManager.current?.speak(t('eose'), () => {
-          setCurrentNote(null);
+          setCurrentNoteId(null);
         });
-        return currentQueue;
+        return currentNotes;
       }
 
-      const [nextNote, ...rest] = currentQueue;
-      setCurrentNote(nextNote);
+      const note = currentNotes[unreadIndex];
+      setCurrentNoteId(note.id);
 
-      const authorProfile = profiles.get(nextNote.pubkey);
+      const authorProfile = profiles.get(note.pubkey);
       const authorName = authorProfile?.display_name || authorProfile?.name || t('nostrAddress');
 
       const processedText = processTextForSpeech(
-        nextNote.content,
+        note.content,
         profiles,
         t('url'),
         t('nostrAddress')
@@ -94,10 +99,13 @@ function App() {
       const fullText = `${authorName}: ${processedText}`;
 
       speechManager.current?.speak(fullText, () => {
-        processQueue();
+        processNextNote();
       });
 
-      return rest;
+      // Mark as read
+      const newNotes = [...currentNotes];
+      newNotes[unreadIndex] = { ...note, read: true };
+      return newNotes;
     });
   }, [profiles, t]);
 
@@ -106,8 +114,8 @@ function App() {
     if (!hexPubkey) return;
 
     setAppState('loading');
-    setQueue([]);
-    setCurrentNote(null);
+    setNotes([]);
+    setCurrentNoteId(null);
 
     try {
       // Fetch relay list
@@ -122,15 +130,24 @@ function App() {
       }
 
       // Fetch profiles of followees
-      const newProfiles = new Map<string, Profile>();
       await fetchProfiles(followList, relays, (p) => {
-        newProfiles.set(p.pubkey, p);
         setProfiles((prev) => new Map(prev).set(p.pubkey, p));
       });
 
       // Subscribe to kind:1 notes
       const unsubscribe = subscribeToNotes(followList, relays, (note) => {
-        setQueue((prev) => [...prev, note]);
+        setNotes((prev) => {
+          // Skip if already exists
+          if (prev.some((n) => n.id === note.id)) {
+            return prev;
+          }
+          const newNotes = [...prev, { ...note, read: false }];
+          // Keep only last 200 notes
+          if (newNotes.length > 200) {
+            return newNotes.slice(-200);
+          }
+          return newNotes;
+        });
       });
       unsubscribeRef.current = unsubscribe;
 
@@ -141,17 +158,18 @@ function App() {
     }
   };
 
-  // Start processing queue when running and not currently speaking
+  // Start processing when running and not currently speaking
   useEffect(() => {
-    if (appState === 'running' && !speechManager.current?.speaking && !currentNote) {
-      const timer = setTimeout(() => {
-        if (queue.length > 0) {
-          processQueue();
-        }
-      }, 500);
-      return () => clearTimeout(timer);
+    if (appState === 'running' && !speechManager.current?.speaking && !currentNoteId) {
+      const unreadCount = notes.filter((n) => !n.read).length;
+      if (unreadCount > 0) {
+        const timer = setTimeout(() => {
+          processNextNote();
+        }, 500);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [appState, queue, currentNote, processQueue]);
+  }, [appState, notes, currentNoteId, processNextNote]);
 
   const handlePause = () => {
     if (appState === 'running') {
@@ -176,11 +194,12 @@ function App() {
     unsubscribeRef.current?.();
     unsubscribeRef.current = null;
     setAppState('idle');
-    setQueue([]);
-    setCurrentNote(null);
+    setNotes([]);
+    setCurrentNoteId(null);
   };
 
   const isRunning = appState === 'running' || appState === 'paused';
+  const unreadCount = notes.filter((n) => !n.read).length;
 
   return (
     <div className="app">
@@ -240,25 +259,28 @@ function App() {
 
       <div className="status">
         <div className="queue-status">
-          {t('queueStatus', { count: queue.length })}
+          {t('queueStatus', { count: unreadCount })} / {notes.length} notes
         </div>
-        {currentNote && (
-          <div className="current-note">
-            <div className="current-label">{t('currentlyReading')}</div>
-            <div className="current-content">
-              {(() => {
-                const authorProfile = profiles.get(currentNote.pubkey);
-                const authorName = authorProfile?.display_name || authorProfile?.name || '';
-                return (
-                  <>
-                    <strong>{authorName}</strong>: {currentNote.content.slice(0, 200)}
-                    {currentNote.content.length > 200 ? '...' : ''}
-                  </>
-                );
-              })()}
+      </div>
+
+      <div className="notes-list">
+        {notes.map((note) => {
+          const authorProfile = profiles.get(note.pubkey);
+          const name = authorProfile?.name || '';
+          const displayName = authorProfile?.display_name || '';
+          const isCurrent = note.id === currentNoteId;
+          return (
+            <div
+              key={note.id}
+              className={`note-item ${note.read ? 'read' : 'unread'} ${isCurrent ? 'current' : ''}`}
+            >
+              <span className="note-author">
+                @{name} {displayName}
+              </span>
+              <span className="note-content">{note.content}</span>
             </div>
-          </div>
-        )}
+          );
+        })}
       </div>
     </div>
   );
