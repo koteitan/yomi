@@ -2,6 +2,9 @@ import type { Profile } from '../nostr/types';
 import { log } from '../utils';
 import i18n from '../i18n';
 
+// Image URL pattern (must be checked before general URL pattern)
+const IMAGE_URL_PATTERN = /https?:\/\/[^\s]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|ico)(?:\?[^\s]*)?/gi;
+
 // URL pattern
 const URL_PATTERN = /https?:\/\/[^\s]+/g;
 
@@ -15,11 +18,15 @@ export function processTextForSpeech(
   text: string,
   profiles: Map<string, Profile>,
   urlLabel: string,
+  imageUrlLabel: string,
   nostrAddressLabel: string
 ): string {
   let processed = text;
 
-  // Replace URLs with label
+  // Replace image URLs with label (must be done before general URLs)
+  processed = processed.replace(IMAGE_URL_PATTERN, imageUrlLabel);
+
+  // Replace remaining URLs with label
   processed = processed.replace(URL_PATTERN, urlLabel);
 
   // Replace nostr: bech32 addresses with label
@@ -45,6 +52,7 @@ export class SpeechManager {
   private isPaused = false;
   private onEndCallback: (() => void) | null = null;
   private isUnlocked = false;
+  private timeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.synth = window.speechSynthesis;
@@ -60,18 +68,26 @@ export class SpeechManager {
     log('[speech]unlocked');
   }
 
-  speak(text: string, onEnd?: () => void): void {
+  speak(text: string, lang: string, onEnd?: () => void, timeoutSeconds?: number): void {
     this.stop();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = i18n.language || 'en';
+    utterance.lang = lang || i18n.language || 'en';
 
     this.onEndCallback = onEnd || null;
 
     log('[speech]start:', text.slice(0, 50));
 
+    const clearTimeoutIfSet = () => {
+      if (this.timeoutId) {
+        clearTimeout(this.timeoutId);
+        this.timeoutId = null;
+      }
+    };
+
     utterance.onend = () => {
       log('[speech]onend');
+      clearTimeoutIfSet();
       if (this.onEndCallback) {
         this.onEndCallback();
       }
@@ -79,6 +95,7 @@ export class SpeechManager {
 
     utterance.onerror = (event) => {
       log('[speech]onerror:', event.error);
+      clearTimeoutIfSet();
       if (event.error !== 'interrupted' && event.error !== 'canceled') {
         console.error('Speech error:', event.error);
       }
@@ -90,6 +107,14 @@ export class SpeechManager {
     this.isPaused = false;
     this.synth.speak(utterance);
     log('[speech]queued, speaking:', this.synth.speaking, 'pending:', this.synth.pending);
+
+    // Set timeout to limit reading length
+    if (timeoutSeconds && timeoutSeconds > 0) {
+      this.timeoutId = setTimeout(() => {
+        log('[speech]timeout reached, skipping');
+        this.skip();
+      }, timeoutSeconds * 1000);
+    }
   }
 
   pause(): void {
@@ -112,6 +137,10 @@ export class SpeechManager {
   }
 
   stop(): void {
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
     this.onEndCallback = null;
     this.synth.cancel();
     this.isPaused = false;

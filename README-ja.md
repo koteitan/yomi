@@ -32,6 +32,66 @@ Arch:
 sudo pacman -S speech-dispatcher espeak-ng
 ```
 
+### 対応言語
+読み上げに使用できる言語は、ブラウザとOSによって異なります。以下は一般的にサポートされている言語です：
+
+| コード | 言語 | Windows | Mac | Android | iOS |
+|--------|------|:-------:|:---:|:-------:|:---:|
+| en | English | ✓ | ✓ | ✓ | ✓ |
+| ja | 日本語 | ✓ | ✓ | ✓ | ✓ |
+| zh | 中文 | ✓ | ✓ | ✓ | ✓ |
+| ko | 한국어 | ✓ | ✓ | ✓ | ✓ |
+| es | Español | ✓ | ✓ | ✓ | ✓ |
+| fr | Français | ✓ | ✓ | ✓ | ✓ |
+| de | Deutsch | ✓ | ✓ | ✓ | ✓ |
+| it | Italiano | ✓ | ✓ | ✓ | ✓ |
+| pt | Português | ✓ | ✓ | ✓ | ✓ |
+| ru | Русский | ✓ | ✓ | ✓ | ✓ |
+| ar | العربية | ✓ | ✓ | ✓ | ✓ |
+| hi | हिन्दी | ✓ | ✓ | ✓ | ✓ |
+| th | ไทย | ✓ | ✓ | ✓ | ✓ |
+| vi | Tiếng Việt | ✓ | | ✓ | |
+| nl | Nederlands | ✓ | ✓ | ✓ | ✓ |
+| pl | Polski | ✓ | ✓ | ✓ | ✓ |
+| tr | Türkçe | ✓ | ✓ | ✓ | ✓ |
+| uk | Українська | ✓ | | ✓ | |
+
+**注意**: Linuxでは`espeak-ng`がサポートする言語に依存します。追加の言語パックをインストールすることで対応言語を増やせます。
+
+### 自動言語判定
+「著者ごとに自動検出」「ノートごとに自動検出」機能では、[franc-min](https://github.com/wooorm/franc)を使用して言語を判定します。franc-minは以下の82言語をサポートしています：
+
+| コード | 言語 | コード | 言語 | コード | 言語 |
+|--------|------|--------|------|--------|------|
+| amh | አማርኛ | arb | العربية | azj | Azərbaycan |
+| bel | Беларуская | ben | বাংলা | bho | भोजपुरी |
+| bos | Bosanski | bul | Български | ceb | Cebuano |
+| ces | Čeština | ckb | کوردی | cmn | 中文 |
+| deu | Deutsch | ell | Ελληνικά | eng | English |
+| fra | Français | fuv | Fulfulde | guj | ગુજરાતી |
+| hau | Hausa | hin | हिन्दी | hms | 苗语 |
+| hnj | Hmong | hrv | Hrvatski | hun | Magyar |
+| ibo | Igbo | ilo | Ilokano | ind | Indonesia |
+| ita | Italiano | jav | Jawa | jpn | 日本語 |
+| kan | ಕನ್ನಡ | kaz | Қазақ | kin | Kinyarwanda |
+| koi | Коми | kor | 한국어 | lin | Lingála |
+| mad | Madura | mag | मगही | mai | मैथिली |
+| mal | മലയാളം | mar | मराठी | mya | မြန်မာ |
+| nld | Nederlands | npi | नेपाली | nya | Chichewa |
+| pan | ਪੰਜਾਬੀ | pbu | پښتو | pes | فارسی |
+| plt | Malagasy | pol | Polski | por | Português |
+| qug | Kichwa | ron | Română | run | Kirundi |
+| rus | Русский | sin | සිංහල | skr | سرائیکی |
+| som | Soomaali | spa | Español | srp | Српски |
+| sun | Sunda | swe | Svenska | swh | Kiswahili |
+| tam | தமிழ் | tel | తెలుగు | tgl | Tagalog |
+| tha | ไทย | tur | Türkçe | ukr | Українська |
+| urd | اردو | uzn | Oʻzbek | vie | Tiếng Việt |
+| yor | Yorùbá | zlm | Melayu | zul | isiZulu |
+| zyb | 壮语 | | | | |
+
+**注意**: 自動言語判定が正しく動作するには、判定された言語がTTSでもサポートされている必要があります。
+
 ## 開発者向け
 ### 動作要件
 - Node.js 18以上

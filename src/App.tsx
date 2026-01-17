@@ -15,6 +15,14 @@ import type { Profile, NoteEvent } from './nostr';
 import { SpeechManager, processTextForSpeech } from './speech';
 import { VERSION, GITHUB_URL } from './version';
 import { log } from './utils';
+import {
+  type Config,
+  loadConfig,
+  saveConfig,
+  languages,
+} from './config';
+import { detectLanguage, updateAuthorLanguage, getAuthorLanguage } from './config/langDetect';
+import i18n from './i18n';
 import './App.css';
 
 type AppState = 'idle' | 'loading' | 'running' | 'paused';
@@ -37,8 +45,13 @@ function App() {
   const [postContent, setPostContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
+  const [config, setConfig] = useState<Config>(loadConfig);
+  const [forcedLang, setForcedLang] = useState<string | null>(null);
 
   const recognitionRef = useRef<{ stop(): void } | null>(null);
+  const configRef = useRef<Config>(config);
+  const forcedLangRef = useRef<string | null>(null);
 
   const speechManager = useRef<SpeechManager | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -60,6 +73,33 @@ function App() {
   useEffect(() => {
     appStateRef.current = appState;
   }, [appState]);
+
+  // Keep configRef in sync
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
+
+  // Keep forcedLangRef in sync
+  useEffect(() => {
+    forcedLangRef.current = forcedLang;
+  }, [forcedLang]);
+
+  // Check for ?lang= query parameter and apply forced language
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const langParam = params.get('lang');
+    if (langParam && langParam.length === 2) {
+      setForcedLang(langParam);
+      i18n.changeLanguage(langParam);
+      return;
+    }
+
+    // Apply display language from config if no forced lang
+    const cfg = loadConfig();
+    if (cfg.displayLanguageMode === 'specific') {
+      i18n.changeLanguage(cfg.displayLanguageSpecific);
+    }
+  }, []);
 
   // Load NIP-07 pubkey on mount
   useEffect(() => {
@@ -135,21 +175,48 @@ function App() {
       noteToRead.content,
       profiles,
       t('url'),
+      t('imageUrl'),
       t('nostrAddress')
     );
 
     const fullText = `${authorName}: ${processedText}`;
 
+    // Determine reading language (forced lang overrides config)
+    const cfg = configRef.current;
+    let readingLang: string;
+    if (forcedLangRef.current) {
+      readingLang = forcedLangRef.current;
+    } else {
+      switch (cfg.readingLanguageMode) {
+        case 'autoAuthor':
+          readingLang = getAuthorLanguage(noteToRead.pubkey);
+          break;
+        case 'autoNote':
+          readingLang = detectLanguage(noteToRead.content);
+          break;
+        case 'specific':
+          readingLang = cfg.readingLanguageSpecific;
+          break;
+        case 'browser':
+        default:
+          readingLang = navigator.language.split('-')[0];
+          break;
+      }
+    }
+
+    // Determine timeout based on config
+    const timeoutSeconds = cfg.readingLimitMode === 'limit' ? cfg.readingLimitSeconds : undefined;
+
     const noteNo = ++readingCountRef.current;
-    log(`[reading]#${noteNo}:${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
-    speechManager.current?.speak(fullText, () => {
+    log(`[reading]#${noteNo}(${readingLang}):${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
+    speechManager.current?.speak(fullText, readingLang, () => {
       log(`[done   ]#${noteNo}`);
       isProcessingRef.current = false;
       setCurrentNoteId(null);
       if (appStateRef.current === 'running') {
         processNextNote();
       }
-    });
+    }, timeoutSeconds);
   }, [profiles, t]);
 
   const handleStart = async () => {
@@ -193,6 +260,9 @@ function App() {
         if (notesRef.current.some((n) => n.id === note.id)) {
           return;
         }
+
+        // Update author language data for auto-detection
+        updateAuthorLanguage(note.pubkey, note.content);
 
         let newNotes: NoteWithRead[];
         if (shouldReplace) {
@@ -321,6 +391,21 @@ function App() {
   const unreadCount = notes.filter((n) => !n.read).length;
   const readCount = notes.filter((n) => n.read).length;
 
+  const updateConfig = (updates: Partial<Config>) => {
+    const newConfig = { ...config, ...updates };
+    setConfig(newConfig);
+    saveConfig(newConfig);
+
+    // Apply display language change immediately
+    if (updates.displayLanguageMode || updates.displayLanguageSpecific) {
+      if (newConfig.displayLanguageMode === 'browser') {
+        i18n.changeLanguage(navigator.language.split('-')[0]);
+      } else {
+        i18n.changeLanguage(newConfig.displayLanguageSpecific);
+      }
+    }
+  };
+
   return (
     <div className="app">
       <div className="header">
@@ -416,6 +501,28 @@ function App() {
         )}
       </div>
 
+      {notes.length > 0 && (
+        <div className="notes-list">
+          {notes.map((note) => {
+            const authorProfile = profiles.get(note.pubkey);
+            const name = authorProfile?.name || '';
+            const displayName = authorProfile?.display_name || '';
+            const isCurrent = note.id === currentNoteId;
+            return (
+              <div
+                key={note.id}
+                className={`note-item ${note.read ? 'read' : 'unread'} ${isCurrent ? 'current' : ''}`}
+              >
+                <span className="note-author">
+                  @{name} {displayName}
+                </span>
+                <span className="note-content">{note.content}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="status">
         <div className="queue-status">
           {appState === 'loading'
@@ -424,25 +531,141 @@ function App() {
         </div>
       </div>
 
-      <div className="notes-list">
-        {notes.map((note) => {
-          const authorProfile = profiles.get(note.pubkey);
-          const name = authorProfile?.name || '';
-          const displayName = authorProfile?.display_name || '';
-          const isCurrent = note.id === currentNoteId;
-          return (
-            <div
-              key={note.id}
-              className={`note-item ${note.read ? 'read' : 'unread'} ${isCurrent ? 'current' : ''}`}
-            >
-              <span className="note-author">
-                @{name} {displayName}
-              </span>
-              <span className="note-content">{note.content}</span>
-            </div>
-          );
-        })}
+      <div className="config-row">
+        <button className="btn-config" onClick={() => setShowConfig(true)}>
+          ⚙
+        </button>
       </div>
+
+      {showConfig && (
+        <div className="config-overlay" onClick={() => setShowConfig(false)}>
+          <div className="config-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="config-header">
+              <span>{t('config')}</span>
+              <button className="btn-close" onClick={() => setShowConfig(false)}>×</button>
+            </div>
+            <div className="config-content">
+              <div className="config-section">
+                <div className="config-label">{t('configReadingLanguage')}</div>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="readingLanguage"
+                    checked={config.readingLanguageMode === 'browser'}
+                    onChange={() => updateConfig({ readingLanguageMode: 'browser' })}
+                  />
+                  {t('configBrowserLanguage')}
+                </label>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="readingLanguage"
+                    checked={config.readingLanguageMode === 'autoAuthor'}
+                    onChange={() => updateConfig({ readingLanguageMode: 'autoAuthor' })}
+                  />
+                  {t('configAutoDetectAuthor')}
+                </label>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="readingLanguage"
+                    checked={config.readingLanguageMode === 'autoNote'}
+                    onChange={() => updateConfig({ readingLanguageMode: 'autoNote' })}
+                  />
+                  {t('configAutoDetectNote')}
+                </label>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="readingLanguage"
+                    checked={config.readingLanguageMode === 'specific'}
+                    onChange={() => updateConfig({ readingLanguageMode: 'specific' })}
+                  />
+                  {t('configSpecificLanguage')}:
+                  <select
+                    className="config-select"
+                    value={config.readingLanguageSpecific}
+                    onChange={(e) => updateConfig({ readingLanguageSpecific: e.target.value })}
+                    disabled={config.readingLanguageMode !== 'specific'}
+                  >
+                    {languages.map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="config-section">
+                <div className="config-label">{t('configDisplayLanguage')}</div>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="displayLanguage"
+                    checked={config.displayLanguageMode === 'browser'}
+                    onChange={() => updateConfig({ displayLanguageMode: 'browser' })}
+                  />
+                  {t('configBrowserLanguage')}
+                </label>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="displayLanguage"
+                    checked={config.displayLanguageMode === 'specific'}
+                    onChange={() => updateConfig({ displayLanguageMode: 'specific' })}
+                  />
+                  {t('configSpecificLanguage')}:
+                  <select
+                    className="config-select"
+                    value={config.displayLanguageSpecific}
+                    onChange={(e) => updateConfig({ displayLanguageSpecific: e.target.value })}
+                    disabled={config.displayLanguageMode !== 'specific'}
+                  >
+                    {languages.map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="config-section">
+                <div className="config-label">{t('configReadingLimit')}</div>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="readingLimit"
+                    checked={config.readingLimitMode === 'none'}
+                    onChange={() => updateConfig({ readingLimitMode: 'none' })}
+                  />
+                  {t('configNoLimit')}
+                </label>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="readingLimit"
+                    checked={config.readingLimitMode === 'limit'}
+                    onChange={() => updateConfig({ readingLimitMode: 'limit' })}
+                  />
+                  {t('configLimitTo')}
+                  <input
+                    type="number"
+                    className="config-input-number"
+                    value={config.readingLimitSeconds}
+                    onChange={(e) => updateConfig({ readingLimitSeconds: parseInt(e.target.value) || 30 })}
+                    disabled={config.readingLimitMode !== 'limit'}
+                    min={1}
+                    max={300}
+                  />
+                  {t('configSeconds')}
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

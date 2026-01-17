@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "franc-min": "^6.2.0",
     "i18next": "^25.7.4",
     "i18next-browser-languagedetector": "^8.2.0",
     "nostr-tools": "^2.19.4",
