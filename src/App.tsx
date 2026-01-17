@@ -263,6 +263,8 @@ function App() {
 
         // Update author language data for auto-detection
         updateAuthorLanguage(note.pubkey, note.content);
+        const detectedLang = detectLanguage(note.content);
+        log(`[note] lang=${detectedLang}: ${note.content.slice(0, 30)}...`);
 
         let newNotes: NoteWithRead[];
         if (shouldReplace) {
