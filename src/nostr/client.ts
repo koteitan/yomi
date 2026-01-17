@@ -68,6 +68,7 @@ export async function fetchRelayList(pubkey: string): Promise<string[]> {
     let kind10002Event: { created_at: number; relays: string[] } | null = null;
     let kind3Event: { created_at: number; relays: string[] } | null = null;
     let resolved = false;
+    let shortTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const filter = { kinds: [10002, 3], authors: [pubkey], limit: 2 };
     const subIdx = trackSub('backward', BOOTSTRAP_RELAYS, [filter]);
@@ -75,6 +76,7 @@ export async function fetchRelayList(pubkey: string): Promise<string[]> {
     const doResolve = () => {
       if (resolved) return;
       resolved = true;
+      if (shortTimeoutId) clearTimeout(shortTimeoutId);
       finishSub(subIdx);
       if (kind10002Event && kind10002Event.relays.length > 0) {
         resolve(kind10002Event.relays);
@@ -97,6 +99,13 @@ export async function fetchRelayList(pubkey: string): Promise<string[]> {
               .filter((tag) => tag[0] === 'r' && (!tag[2] || tag[2] !== 'read'))
               .map((tag) => tag[1]);
             kind10002Event = { created_at: event.created_at, relays: eventRelays };
+            // Start short timeout after first kind:10002
+            if (!shortTimeoutId) {
+              shortTimeoutId = setTimeout(() => {
+                req.over();
+                doResolve();
+              }, 1000);
+            }
           }
         } else if (event.kind === 3) {
           if (!kind3Event || event.created_at > kind3Event.created_at) {
@@ -193,6 +202,7 @@ export async function fetchFollowList(pubkey: string, relays: string[]): Promise
     let followList: string[] = [];
     let latestCreatedAt = 0;
     let resolved = false;
+    let shortTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const useRelays = [...BOOTSTRAP_RELAYS, ...relays];
     const filter = { kinds: [3], authors: [pubkey], limit: 1 };
@@ -201,6 +211,7 @@ export async function fetchFollowList(pubkey: string, relays: string[]): Promise
     const doResolve = () => {
       if (!resolved) {
         resolved = true;
+        if (shortTimeoutId) clearTimeout(shortTimeoutId);
         finishSub(subIdx);
         resolve(followList);
       }
@@ -217,6 +228,13 @@ export async function fetchFollowList(pubkey: string, relays: string[]): Promise
           followList = event.tags
             .filter((tag) => tag[0] === 'p')
             .map((tag) => tag[1]);
+          // Start short timeout after first kind:3
+          if (!shortTimeoutId) {
+            shortTimeoutId = setTimeout(() => {
+              req.over();
+              doResolve();
+            }, 1000);
+          }
         }
       },
       complete: () => {

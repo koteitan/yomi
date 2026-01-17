@@ -36,6 +36,7 @@ function App() {
   const relaysRef = useRef<string[]>([]);
   const readingCountRef = useRef(0);
   const isProcessingRef = useRef(false);
+  const notesRef = useRef<NoteWithRead[]>([]);
 
   // Initialize speech manager
   useEffect(() => {
@@ -82,46 +83,55 @@ function App() {
   };
 
   const processNextNote = useCallback(() => {
-    if (isProcessingRef.current) return;
+    if (isProcessingRef.current) {
+      console.log('[process] skipped (already processing)');
+      return;
+    }
     isProcessingRef.current = true;
 
-    setNotes((currentNotes) => {
-      // Find last unread note (oldest, since newer notes are at front)
-      const unreadIndex = currentNotes.findLastIndex((n) => !n.read);
-      if (unreadIndex === -1) {
-        // All notes read, wait a bit then say EOSE if still empty
-        isProcessingRef.current = false;
-        setCurrentNoteId(null);
-        return currentNotes;
-      }
+    const currentNotes = notesRef.current;
+    const unreadCount = currentNotes.filter((n) => !n.read).length;
+    console.log('[process] unread:', unreadCount, 'total:', currentNotes.length);
 
-      const note = currentNotes[unreadIndex];
-      setCurrentNoteId(note.id);
+    // Find last unread note (oldest, since newer notes are at front)
+    const unreadIndex = currentNotes.findLastIndex((n) => !n.read);
+    if (unreadIndex === -1) {
+      // All notes read
+      console.log('[process] no unread notes');
+      isProcessingRef.current = false;
+      setCurrentNoteId(null);
+      return;
+    }
 
-      const authorProfile = profiles.get(note.pubkey);
-      const authorName = authorProfile?.display_name || authorProfile?.name || t('nostrAddress');
+    console.log('[process] reading index:', unreadIndex);
+    const noteToRead = currentNotes[unreadIndex];
 
-      const processedText = processTextForSpeech(
-        note.content,
-        profiles,
-        t('url'),
-        t('nostrAddress')
-      );
+    // Mark as read synchronously in ref
+    notesRef.current = currentNotes.map((n, i) =>
+      i === unreadIndex ? { ...n, read: true } : n
+    );
+    setNotes(notesRef.current);
+    setCurrentNoteId(noteToRead.id);
 
-      const fullText = `${authorName}: ${processedText}`;
+    const authorProfile = profiles.get(noteToRead.pubkey);
+    const authorName = authorProfile?.display_name || authorProfile?.name || t('nostrAddress');
 
-      const noteNo = ++readingCountRef.current;
-      console.log(`[reading]#${noteNo}:${note.content.slice(0, 50)}${note.content.length > 50 ? '...' : ''}`);
-      speechManager.current?.speak(fullText, () => {
-        console.log(`[done   ]#${noteNo}`);
-        isProcessingRef.current = false;
-        processNextNote();
-      });
+    const processedText = processTextForSpeech(
+      noteToRead.content,
+      profiles,
+      t('url'),
+      t('nostrAddress')
+    );
 
-      // Mark as read
-      const newNotes = [...currentNotes];
-      newNotes[unreadIndex] = { ...note, read: true };
-      return newNotes;
+    const fullText = `${authorName}: ${processedText}`;
+
+    const noteNo = ++readingCountRef.current;
+    console.log(`[reading]#${noteNo}:${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
+    speechManager.current?.speak(fullText, () => {
+      console.log(`[done   ]#${noteNo}`);
+      isProcessingRef.current = false;
+      setCurrentNoteId(null);
+      processNextNote();
     });
   }, [profiles, t]);
 
@@ -130,44 +140,51 @@ function App() {
     if (!hexPubkey) return;
 
     setAppState('loading');
+    notesRef.current = [];
     setNotes([]);
     setCurrentNoteId(null);
 
     try {
       // Fetch relay list
+      console.log('[start] fetching relay list...');
       const relays = await fetchRelayList(hexPubkey);
+      console.log('[start] relay list:', relays.length, 'relays');
       relaysRef.current = relays;
 
       // Fetch follow list
+      console.log('[start] fetching follow list...');
       const followList = await fetchFollowList(hexPubkey, relays);
+      console.log('[start] follow list:', followList.length, 'follows');
       if (followList.length === 0) {
         setAppState('idle');
         return;
       }
 
-      // Fetch profiles of followees
-      await fetchProfiles(followList, relays, (p) => {
+      // Fetch profiles of followees (don't await, let it run in background)
+      console.log('[start] fetching profiles (background)...');
+      fetchProfiles(followList, relays, (p) => {
         setProfiles((prev) => new Map(prev).set(p.pubkey, p));
       });
 
       // Subscribe to kind:1 notes
+      console.log('[start] subscribing to notes...');
       const unsubscribe = subscribeToNotes(followList, relays, (note) => {
-        setNotes((prev) => {
-          // Skip if already exists
-          if (prev.some((n) => n.id === note.id)) {
-            return prev;
-          }
-          // Prepend new notes (newer at top)
-          const newNotes = [{ ...note, read: false }, ...prev];
-          // Keep only first 200 notes (newest)
-          if (newNotes.length > 200) {
-            return newNotes.slice(0, 200);
-          }
-          return newNotes;
-        });
+        // Skip if already exists
+        if (notesRef.current.some((n) => n.id === note.id)) {
+          return;
+        }
+        // Prepend new notes (newer at top)
+        let newNotes = [{ ...note, read: false }, ...notesRef.current];
+        // Keep only first 200 notes (newest)
+        if (newNotes.length > 200) {
+          newNotes = newNotes.slice(0, 200);
+        }
+        notesRef.current = newNotes;
+        setNotes(newNotes);
       });
       unsubscribeRef.current = unsubscribe;
 
+      console.log('[start] running!');
       setAppState('running');
     } catch (error) {
       console.error('Error starting:', error);
@@ -211,6 +228,7 @@ function App() {
     unsubscribeRef.current?.();
     unsubscribeRef.current = null;
     setAppState('idle');
+    notesRef.current = [];
     setNotes([]);
     setCurrentNoteId(null);
     readingCountRef.current = 0;
