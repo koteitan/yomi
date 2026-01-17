@@ -1,5 +1,6 @@
 import type { Profile } from '../nostr/types';
 import { log } from '../utils';
+import i18n from '../i18n';
 
 // URL pattern
 const URL_PATTERN = /https?:\/\/[^\s]+/g;
@@ -63,7 +64,7 @@ export class SpeechManager {
     this.stop();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = navigator.language || 'en';
+    utterance.lang = i18n.language || 'en';
 
     this.onEndCallback = onEnd || null;
 
