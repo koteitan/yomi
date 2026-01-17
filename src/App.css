@@ -128,6 +128,7 @@
 .btn-pause {
   background: #8a7d72;
   color: #fff;
+  flex: 1;
 }
 
 .btn-pause:hover {
@@ -137,6 +138,7 @@
 .btn-resume {
   background: #7a9f6a;
   color: #fff;
+  flex: 1;
 }
 
 .btn-resume:hover {
@@ -146,6 +148,7 @@
 .btn-skip {
   background: #a89888;
   color: #fff;
+  flex: 1;
 }
 
 .btn-skip:hover {
@@ -155,6 +158,7 @@
 .btn-stop {
   background: #c47a6a;
   color: #fff;
+  flex: 1;
 }
 
 .btn-stop:hover {
@@ -195,6 +199,7 @@
   background: #7a9f6a;
   color: #fff;
   align-self: flex-end;
+  min-width: 70px;
 }
 
 .btn-post:hover:not(:disabled) {
@@ -202,14 +207,13 @@
 }
 
 .btn-mic {
-  background: #d4c4b5;
-  color: #4a3f35;
-  font-size: 18px;
-  padding: 10px 14px;
+  background: #8a7d72;
+  color: #fff;
+  min-width: 70px;
 }
 
 .btn-mic:hover:not(:disabled) {
-  background: #c4b4a5;
+  background: #7a6d62;
 }
 
 .btn-mic-active {

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   getNip07Pubkey,
   parseHexOrNpub,
+  hexToNpub,
   fetchRelayList,
   fetchProfile,
   fetchFollowList,
@@ -61,7 +62,7 @@ function App() {
       const pubkey = await getNip07Pubkey();
       setNip07Loading(false);
       if (pubkey) {
-        setPubkeyInput(pubkey);
+        setPubkeyInput(hexToNpub(pubkey));
         loadProfile(pubkey);
       }
     };
@@ -363,14 +364,14 @@ function App() {
             onClick={handleSpeechRecognition}
             disabled={isPosting}
           >
-            {isListening ? '...' : '🎤'}
+            {isListening ? '...' : t('mic')}
           </button>
           <button
             className="btn btn-post"
             onClick={handlePost}
             disabled={!postContent.trim() || isPosting || relaysRef.current.length === 0}
           >
-            {isPosting ? 'Posting...' : 'Post'}
+            {isPosting ? '...' : t('post')}
           </button>
         </div>
 
@@ -389,7 +390,7 @@ function App() {
               {t('skip')}
             </button>
             <button onClick={handleStop} className="btn btn-stop">
-              Stop
+              {t('stop')}
             </button>
           </div>
         )}
@@ -397,7 +398,7 @@ function App() {
 
       <div className="status">
         <div className="queue-status">
-          read: {readCount} events, in queue: {unreadCount} events
+          {t('statusRead', { count: readCount })}, {t('statusQueue', { count: unreadCount })}
         </div>
       </div>
 

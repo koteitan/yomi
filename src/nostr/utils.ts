@@ -1,5 +1,9 @@
 import { nip19 } from 'nostr-tools';
 
+export function hexToNpub(hex: string): string {
+  return nip19.npubEncode(hex);
+}
+
 export function parseHexOrNpub(input: string): string | null {
   const trimmed = input.trim();
 

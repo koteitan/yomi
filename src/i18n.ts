@@ -18,6 +18,11 @@ const resources = {
       nostrAddress: 'Nostr address',
       url: 'URL',
       postPlaceholder: 'type your message',
+      mic: 'Mic',
+      post: 'post',
+      stop: 'Stop',
+      statusRead: 'read: {{count}} events',
+      statusQueue: 'in queue: {{count}} events',
     },
   },
   ja: {
@@ -35,6 +40,11 @@ const resources = {
       nostrAddress: 'ノスターアドレス',
       url: 'URL',
       postPlaceholder: 'メッセージを入力してください',
+      mic: '録音',
+      post: '投稿',
+      stop: '停止',
+      statusRead: '読了: {{count}}件',
+      statusQueue: '待ち: {{count}}件',
     },
   },
 };
