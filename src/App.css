@@ -331,6 +331,7 @@
 }
 
 .note-text {
+  display: inline;
 }
 
 .note-item:last-child {
@@ -364,6 +365,7 @@
 .note-content {
   color: #4a3f35;
   word-break: break-word;
+  white-space: pre-line;
 }
 
 .note-item.read .note-content {
@@ -380,11 +382,11 @@
 
 .note-actions {
   float: right;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   margin-left: 8px;
-  margin-top: 0.2em;
+  margin-bottom: 2px;
 }
 
 .note-action-btn {

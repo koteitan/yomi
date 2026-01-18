@@ -712,18 +712,18 @@ function App() {
               disabled={isPosting}
             />
             <button
-              className={`btn btn-mic ${isListening ? 'btn-mic-active' : ''}`}
-              onClick={handleSpeechRecognition}
-              disabled={isPosting}
-            >
-              {isListening ? '...' : t('mic')}
-            </button>
-            <button
               className="btn btn-post"
               onClick={handlePost}
               disabled={!postContent.trim() || isPosting}
             >
               {isPosting ? '...' : t('post')}
+            </button>
+            <button
+              className={`btn btn-mic ${isListening ? 'btn-mic-active' : ''}`}
+              onClick={handleSpeechRecognition}
+              disabled={isPosting}
+            >
+              {isListening ? '...' : t('mic')}
             </button>
           </div>
           {config.sourceNostr && config.sourceBluesky && (
@@ -821,12 +821,12 @@ function App() {
                     )}
                   </button>
                 </span>
-                <div className="note-text">
+                <span className="note-text">
                   <span className="note-author">
                     @{name} {displayName}
                   </span>
                   <span className="note-content">{note.content}</span>
-                </div>
+                </span>
               </div>
             );
           })}
