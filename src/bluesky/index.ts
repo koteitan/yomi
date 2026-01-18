@@ -310,6 +310,47 @@ export async function getTimeline(since?: string): Promise<BlueskyPost[]> {
 }
 
 /**
+ * Peek latest post to check for new posts (requires auth)
+ * Returns the createdAt of the latest post, or null if no new posts
+ */
+export async function peekLatest(since?: string): Promise<string | null> {
+  if (!session) {
+    return null;
+  }
+
+  try {
+    const url = new URL(`${BSKY_API}/xrpc/app.bsky.feed.getTimeline`);
+    url.searchParams.set('limit', '1');
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${session.accessJwt}`,
+      },
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+    const item = data.feed?.[0];
+    if (!item?.post?.record?.createdAt) {
+      return null;
+    }
+
+    const createdAt = item.post.record.createdAt;
+    // Return createdAt only if newer than since
+    if (since && createdAt <= since) {
+      return null;
+    }
+
+    return createdAt;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * Create a post (requires auth)
  */
 export async function createPost(text: string): Promise<boolean> {

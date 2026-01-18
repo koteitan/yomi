@@ -458,6 +458,14 @@ function App() {
           // Start polling for new posts
           blueskyPollingRef.current = window.setInterval(async () => {
             if (appStateRef.current !== 'running') return;
+
+            // For logged-in users: peek first, then fetch if new posts exist
+            if (useTimeline) {
+              const hasNew = await bluesky.peekLatest(blueskyLastFetchRef.current);
+              if (!hasNew) return;
+              log('[bluesky] new post detected, fetching...');
+            }
+
             const newPosts = useTimeline
               ? await bluesky.getTimeline(blueskyLastFetchRef.current)
               : await bluesky.getFollowsPosts(blueskyFollowsRef.current, blueskyLastFetchRef.current);
@@ -466,7 +474,7 @@ function App() {
               addBlueskyPosts(newPosts);
               blueskyLastFetchRef.current = newPosts[0].createdAt;
             }
-          }, 30000); // Poll every 30 seconds
+          }, 5000); // Poll every 5 seconds
         }
       }
 
