@@ -852,7 +852,7 @@ function App() {
 
       <div className="config-row">
         <button className="btn-config" onClick={() => setShowConfig(true)}>
-          ⚙
+          <img src={`${import.meta.env.BASE_URL}gear-icon.png`} alt="Settings" className="icon-config" />
         </button>
       </div>
 

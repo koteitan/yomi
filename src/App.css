@@ -455,14 +455,18 @@
 .btn-config {
   background: none;
   border: none;
-  font-size: 20px;
   cursor: pointer;
-  color: #c4b8ac;
   padding: 4px 8px;
+  opacity: 0.6;
 }
 
 .btn-config:hover {
-  color: #8a7d72;
+  opacity: 1;
+}
+
+.icon-config {
+  width: 20px;
+  height: 20px;
 }
 
 .config-overlay {
