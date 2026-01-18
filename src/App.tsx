@@ -14,7 +14,7 @@ import {
 import type { Profile } from './nostr';
 import { SpeechManager, processTextForSpeech } from './speech';
 import { VERSION, GITHUB_URL } from './version';
-import { log } from './utils';
+import { log, monevent } from './utils';
 import {
   type Config,
   loadConfig,
@@ -84,6 +84,7 @@ function App() {
   // Initialize speech manager
   useEffect(() => {
     speechManager.current = new SpeechManager();
+    speechManager.current.volume = loadConfig().volume;
     return () => {
       speechManager.current?.stop();
     };
@@ -109,9 +110,16 @@ function App() {
     isMutedRef.current = isMuted;
   }, [isMuted]);
 
-  // Check for ?lang= query parameter and apply forced language
+  // Check for query parameters on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    // ?monevent - enable event logging
+    if (params.has('monevent')) {
+      monevent();
+    }
+
+    // ?lang= - force language
     const langParam = params.get('lang');
     if (langParam && langParam.length === 2) {
       setForcedLang(langParam);
@@ -864,6 +872,33 @@ function App() {
               <button className="btn-close" onClick={() => setShowConfig(false)}>×</button>
             </div>
             <div className="config-content">
+              <div className="config-section">
+                <div className="config-label">{t('configVolume')}</div>
+                <div className="config-volume">
+                  <input
+                    type="range"
+                    className="config-volume-slider"
+                    min={0}
+                    max={100}
+                    value={config.volume * 100}
+                    onChange={(e) => {
+                      const newVolume = parseInt(e.target.value) / 100;
+                      updateConfig({ volume: newVolume });
+                      if (speechManager.current) {
+                        speechManager.current.volume = newVolume;
+                      }
+                    }}
+                    onMouseUp={() => {
+                      speechManager.current?.speak(t('volumePreview'), i18n.language);
+                    }}
+                    onTouchEnd={() => {
+                      speechManager.current?.speak(t('volumePreview'), i18n.language);
+                    }}
+                  />
+                  <span className="config-volume-value">{Math.round(config.volume * 100)}%</span>
+                </div>
+              </div>
+
               <div className="config-section">
                 <div className="config-label">{t('configSources')}</div>
                 <label className="config-checkbox">

@@ -53,9 +53,18 @@ export class SpeechManager {
   private onEndCallback: (() => void) | null = null;
   private isUnlocked = false;
   private timeoutId: ReturnType<typeof setTimeout> | null = null;
+  private _volume = 1.0;
 
   constructor() {
     this.synth = window.speechSynthesis;
+  }
+
+  get volume(): number {
+    return this._volume;
+  }
+
+  set volume(value: number) {
+    this._volume = Math.max(0, Math.min(1, value));
   }
 
   // Call this on user interaction to unlock audio on iOS
@@ -73,6 +82,7 @@ export class SpeechManager {
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang || i18n.language || 'en';
+    utterance.volume = this._volume;
 
     this.onEndCallback = onEnd || null;
 

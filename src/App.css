@@ -665,6 +665,59 @@
   color: #8a7d72;
 }
 
+.config-volume {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.config-volume-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.config-volume-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: #e8e0d8;
+  border-radius: 2px;
+}
+
+.config-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #b89f8a;
+  border-radius: 50%;
+  margin-top: -6px;
+  cursor: pointer;
+}
+
+.config-volume-slider::-moz-range-track {
+  height: 4px;
+  background: #e8e0d8;
+  border-radius: 2px;
+}
+
+.config-volume-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #b89f8a;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.config-volume-value {
+  min-width: 40px;
+  text-align: right;
+  color: #5c4a3d;
+  font-size: 14px;
+}
+
 /* Mobile styles */
 @media (max-width: 480px) {
   .app {

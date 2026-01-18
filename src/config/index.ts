@@ -10,6 +10,7 @@ export interface Config {
   displayLanguageSpecific: string;
   readingLimitMode: ReadingLimitMode;
   readingLimitSeconds: number;
+  volume: number;
   // Sources
   sourceNostr: boolean;
   nostrAuthMode: NostrAuthMode;
@@ -28,6 +29,7 @@ export const defaultConfig: Config = {
   displayLanguageSpecific: 'en',
   readingLimitMode: 'none',
   readingLimitSeconds: 30,
+  volume: 1.0,
   // Sources
   sourceNostr: true,
   nostrAuthMode: 'nip07',

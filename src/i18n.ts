@@ -46,6 +46,8 @@ const resources = {
       loadingNip07: 'Reading NIP-07 pubkey...',
       loadingProfile: 'Loading profile...',
       configInputPubkey: 'Input pubkey',
+      configVolume: 'Volume',
+      volumePreview: 'Test',
     },
   },
   ja: {
@@ -91,6 +93,8 @@ const resources = {
       loadingNip07: 'NIP-07公開鍵を読み込み中...',
       loadingProfile: 'プロフィール読み込み中...',
       configInputPubkey: '公開鍵を入力',
+      configVolume: '音量',
+      volumePreview: 'テスト',
     },
   },
   zh: {
