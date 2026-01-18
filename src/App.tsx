@@ -414,17 +414,27 @@ function App() {
 
       // Bluesky source
       if (config.sourceBluesky && config.blueskyHandle) {
-        log('[start] fetching Bluesky follows...');
-        const follows = await bluesky.getFollows(config.blueskyHandle);
-        log('[start] Bluesky follows:', follows.length);
-        blueskyFollowsRef.current = follows;
+        const useTimeline = bluesky.isLoggedIn();
 
-        if (follows.length > 0) {
+        if (!useTimeline) {
+          // Not logged in: fetch follows list first
+          log('[start] fetching Bluesky follows...');
+          const follows = await bluesky.getFollows(config.blueskyHandle);
+          log('[start] Bluesky follows:', follows.length);
+          blueskyFollowsRef.current = follows;
+          if (follows.length === 0) {
+            log('[start] no Bluesky follows found');
+          }
+        }
+
+        if (useTimeline || blueskyFollowsRef.current.length > 0) {
           hasAnySource = true;
 
           // Fetch initial posts
           log('[start] fetching Bluesky posts...');
-          const posts = await bluesky.getFollowsPosts(follows);
+          const posts = useTimeline
+            ? await bluesky.getTimeline()
+            : await bluesky.getFollowsPosts(blueskyFollowsRef.current);
           log('[start] Bluesky posts:', posts.length);
           addBlueskyPosts(posts, true); // Initial load: only keep one post
           if (posts.length > 0) {
@@ -434,10 +444,9 @@ function App() {
           // Start polling for new posts
           blueskyPollingRef.current = window.setInterval(async () => {
             if (appStateRef.current !== 'running') return;
-            const newPosts = await bluesky.getFollowsPosts(
-              blueskyFollowsRef.current,
-              blueskyLastFetchRef.current
-            );
+            const newPosts = useTimeline
+              ? await bluesky.getTimeline(blueskyLastFetchRef.current)
+              : await bluesky.getFollowsPosts(blueskyFollowsRef.current, blueskyLastFetchRef.current);
             if (newPosts.length > 0) {
               log('[bluesky] new posts:', newPosts.length);
               addBlueskyPosts(newPosts);

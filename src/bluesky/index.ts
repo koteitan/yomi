@@ -155,7 +155,7 @@ export async function getProfile(handle: string): Promise<BlueskyProfile | null>
 }
 
 /**
- * Get timeline posts from followed accounts (no auth required using public API)
+ * Get posts from followed accounts (no auth required, but slower)
  */
 export async function getFollowsPosts(
   follows: BlueskyProfile[],
@@ -164,14 +164,13 @@ export async function getFollowsPosts(
   const posts: BlueskyPost[] = [];
 
   try {
-    // Get posts from each followed account's feed
-    // Using getAuthorFeed for each follow (limited to recent posts)
-    const dids = follows.slice(0, 50).map((f) => f.did); // Limit to 50 follows for performance
+    // Get 1 latest post from each followed account
+    const dids = follows.map((f) => f.did);
 
     for (const did of dids) {
       const url = new URL(`${PUBLIC_API}/xrpc/app.bsky.feed.getAuthorFeed`);
       url.searchParams.set('actor', did);
-      url.searchParams.set('limit', '10');
+      url.searchParams.set('limit', '5');
 
       const res = await fetch(url.toString());
       if (!res.ok) continue;
@@ -181,11 +180,11 @@ export async function getFollowsPosts(
         const post = item.post;
         if (!post?.record?.text) continue;
 
-        // Skip if older than since
-        if (since && post.record.createdAt <= since) continue;
-
         // Skip replies and reposts
         if (item.reply || item.reason) continue;
+
+        // Skip if older than since
+        if (since && post.record.createdAt <= since) continue;
 
         posts.push({
           uri: post.uri,
@@ -199,6 +198,7 @@ export async function getFollowsPosts(
           text: post.record.text,
           createdAt: post.record.createdAt,
         });
+        break; // Only take the first valid post per user
       }
     }
 
@@ -209,6 +209,65 @@ export async function getFollowsPosts(
     return posts;
   } catch (e) {
     console.error('[bluesky] getFollowsPosts error:', e);
+    return [];
+  }
+}
+
+/**
+ * Get timeline posts (requires auth)
+ */
+export async function getTimeline(since?: string): Promise<BlueskyPost[]> {
+  if (!session) {
+    log('[bluesky] not logged in, cannot get timeline');
+    return [];
+  }
+
+  const posts: BlueskyPost[] = [];
+
+  try {
+    const url = new URL(`${BSKY_API}/xrpc/app.bsky.feed.getTimeline`);
+    url.searchParams.set('limit', '50');
+
+    const res = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${session.accessJwt}`,
+      },
+    });
+
+    if (!res.ok) {
+      log('[bluesky] getTimeline failed:', res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    for (const item of data.feed || []) {
+      const post = item.post;
+      if (!post?.record?.text) continue;
+
+      // Skip replies and reposts
+      if (item.reply || item.reason) continue;
+
+      // Skip if older than since
+      if (since && post.record.createdAt <= since) continue;
+
+      posts.push({
+        uri: post.uri,
+        cid: post.cid,
+        author: {
+          did: post.author.did,
+          handle: post.author.handle,
+          displayName: post.author.displayName,
+          avatar: post.author.avatar,
+        },
+        text: post.record.text,
+        createdAt: post.record.createdAt,
+      });
+    }
+
+    log('[bluesky] got posts:', posts.length);
+    return posts;
+  } catch (e) {
+    console.error('[bluesky] getTimeline error:', e);
     return [];
   }
 }
