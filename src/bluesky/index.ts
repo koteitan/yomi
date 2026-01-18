@@ -70,9 +70,13 @@ export function isLoggedIn(): boolean {
 export async function getFollows(handle: string): Promise<BlueskyProfile[]> {
   const follows: BlueskyProfile[] = [];
   let cursor: string | undefined;
+  let pageNum = 0;
+  const startTime = Date.now();
+  log('[bluesky] getFollows start');
 
   try {
     do {
+      pageNum++;
       const url = new URL(`${PUBLIC_API}/xrpc/app.bsky.graph.getFollows`);
       url.searchParams.set('actor', handle);
       url.searchParams.set('limit', '100');
@@ -103,9 +107,10 @@ export async function getFollows(handle: string): Promise<BlueskyProfile[]> {
         });
       }
       cursor = data.cursor;
+      log(`[bluesky] getFollows page ${pageNum}: ${follows.length} follows, ${Date.now() - startTime}ms`);
     } while (cursor);
 
-    log('[bluesky] got follows:', follows.length);
+    log(`[bluesky] getFollows done: ${follows.length} follows in ${Date.now() - startTime}ms`);
     return follows;
   } catch (e) {
     console.error('[bluesky] getFollows error:', e);
@@ -162,12 +167,18 @@ export async function getFollowsPosts(
   since?: string
 ): Promise<BlueskyPost[]> {
   const posts: BlueskyPost[] = [];
+  const startTime = Date.now();
+  log(`[bluesky] getFollowsPosts start: ${follows.length} users`);
 
   try {
     // Get 1 latest post from each followed account
     const dids = follows.map((f) => f.did);
 
-    for (const did of dids) {
+    for (let i = 0; i < dids.length; i++) {
+      const did = dids[i];
+      if (i % 10 === 0) {
+        log(`[bluesky] getFollowsPosts progress: ${i}/${dids.length}, ${Date.now() - startTime}ms`);
+      }
       const url = new URL(`${PUBLIC_API}/xrpc/app.bsky.feed.getAuthorFeed`);
       url.searchParams.set('actor', did);
       url.searchParams.set('limit', '5');
@@ -205,7 +216,7 @@ export async function getFollowsPosts(
     // Sort by createdAt descending
     posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    log('[bluesky] got posts:', posts.length);
+    log(`[bluesky] getFollowsPosts done: ${posts.length} posts in ${Date.now() - startTime}ms`);
     return posts;
   } catch (e) {
     console.error('[bluesky] getFollowsPosts error:', e);
@@ -223,6 +234,8 @@ export async function getTimeline(since?: string): Promise<BlueskyPost[]> {
   }
 
   const posts: BlueskyPost[] = [];
+  const startTime = Date.now();
+  log('[bluesky] getTimeline start');
 
   try {
     const url = new URL(`${BSKY_API}/xrpc/app.bsky.feed.getTimeline`);
@@ -235,10 +248,11 @@ export async function getTimeline(since?: string): Promise<BlueskyPost[]> {
     });
 
     if (!res.ok) {
-      log('[bluesky] getTimeline failed:', res.status);
+      log(`[bluesky] getTimeline failed: ${res.status}, ${Date.now() - startTime}ms`);
       return [];
     }
 
+    log(`[bluesky] getTimeline fetch done: ${Date.now() - startTime}ms`);
     const data = await res.json();
     for (const item of data.feed || []) {
       const post = item.post;
@@ -264,7 +278,7 @@ export async function getTimeline(since?: string): Promise<BlueskyPost[]> {
       });
     }
 
-    log('[bluesky] got posts:', posts.length);
+    log(`[bluesky] getTimeline done: ${posts.length} posts in ${Date.now() - startTime}ms`);
     return posts;
   } catch (e) {
     console.error('[bluesky] getTimeline error:', e);

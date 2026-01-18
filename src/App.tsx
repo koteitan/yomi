@@ -116,7 +116,7 @@ function App() {
 
     // ?monevent - enable event logging
     if (params.has('monevent')) {
-      monevent();
+      monevent(true);
     }
 
     // ?lang= - force language
@@ -422,7 +422,13 @@ function App() {
 
       // Bluesky source
       if (config.sourceBluesky && config.blueskyHandle) {
+        // Login if app key is configured
+        if (!bluesky.isLoggedIn() && config.blueskyAppKey) {
+          log('[start] logging in to Bluesky...');
+          await bluesky.login(config.blueskyHandle, config.blueskyAppKey);
+        }
         const useTimeline = bluesky.isLoggedIn();
+        log(`[start] Bluesky useTimeline: ${useTimeline}`);
 
         if (!useTimeline) {
           // Not logged in: fetch follows list first

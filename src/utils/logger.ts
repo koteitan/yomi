@@ -6,8 +6,8 @@ export function log(...args: unknown[]): void {
   }
 }
 
-export function monevent(): void {
-  eventLogEnabled = !eventLogEnabled;
+export function monevent(enable?: boolean): void {
+  eventLogEnabled = enable !== undefined ? enable : !eventLogEnabled;
   console.log(`[yomi] event log ${eventLogEnabled ? 'enabled' : 'disabled'}`);
 }
 
