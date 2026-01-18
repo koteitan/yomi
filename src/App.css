@@ -324,8 +324,6 @@
 }
 
 .note-item {
-  display: flex;
-  align-items: flex-start;
   padding: 8px 12px;
   border-bottom: 1px solid #e8e0d8;
   font-size: 13px;
@@ -333,8 +331,6 @@
 }
 
 .note-text {
-  flex: 1;
-  min-width: 0;
 }
 
 .note-item:last-child {
@@ -383,11 +379,12 @@
 }
 
 .note-actions {
+  float: right;
   display: flex;
   align-items: center;
   gap: 4px;
   margin-left: 8px;
-  flex-shrink: 0;
+  margin-top: 0.2em;
 }
 
 .note-action-btn {
@@ -398,8 +395,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1em;
-  height: 1em;
   vertical-align: middle;
 }
 
@@ -407,7 +402,12 @@
   cursor: default;
 }
 
-.note-action-btn svg {
+.note-fav {
+  width: 1em;
+  height: 1em;
+}
+
+.note-fav svg {
   width: 100%;
   height: 100%;
 }
@@ -427,14 +427,21 @@
   stroke: #8a7d72;
 }
 
-.icon-nostr,
+.icon-nostr {
+  fill: #B89F8A;
+  width: 0.88em;
+  height: 0.88em;
+}
+
 .icon-bluesky {
-  fill: #8a7d72;
+  fill: #B89F8A;
+  width: 0.88em;
+  height: 0.88em;
 }
 
 .note-source:hover .icon-nostr,
 .note-source:hover .icon-bluesky {
-  fill: #5c4a3d;
+  fill: #8a7d72;
 }
 
 .config-row {
