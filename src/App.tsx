@@ -205,6 +205,17 @@ function App() {
     }
   }, [config.sourceBluesky, config.blueskyHandle]);
 
+  // Logout from Bluesky when handle or app key changes
+  const blueskyCredentialsRef = useRef({ handle: config.blueskyHandle, appKey: config.blueskyAppKey });
+  useEffect(() => {
+    const prev = blueskyCredentialsRef.current;
+    if (prev.handle !== config.blueskyHandle || prev.appKey !== config.blueskyAppKey) {
+      bluesky.logout();
+      logBluesky('logged out due to credentials change');
+    }
+    blueskyCredentialsRef.current = { handle: config.blueskyHandle, appKey: config.blueskyAppKey };
+  }, [config.blueskyHandle, config.blueskyAppKey]);
+
   const processNextNote = useCallback(() => {
     if (isProcessingRef.current) {
       log('[process] skipped (already processing)');
@@ -605,16 +616,20 @@ function App() {
     const results: boolean[] = [];
 
     if (canPostNostr) {
+      logNostr('posting:', postContent.slice(0, 50));
       const nostrSuccess = await publishNote(postContent, relaysRef.current);
+      logNostr('post result:', nostrSuccess ? 'success' : 'failed');
       results.push(nostrSuccess);
     }
 
     if (canPostBluesky) {
+      logBluesky('posting:', postContent.slice(0, 50));
       // Login if not already
       if (!bluesky.isLoggedIn()) {
         await bluesky.login(config.blueskyHandle, config.blueskyAppKey);
       }
       const bskySuccess = await bluesky.createPost(postContent);
+      logBluesky('post result:', bskySuccess ? 'success' : 'failed');
       results.push(bskySuccess);
     }
 
@@ -770,7 +785,7 @@ function App() {
                   type="checkbox"
                   checked={postToNostr}
                   onChange={(e) => setPostToNostr(e.target.checked)}
-                  disabled={!config.sourceNostr}
+                  disabled={!config.sourceNostr || config.nostrAuthMode !== 'nip07'}
                 />
                 {t('sourceNostr')}
               </label>
