@@ -9,6 +9,11 @@ export interface Config {
   displayLanguageSpecific: string;
   readingLimitMode: ReadingLimitMode;
   readingLimitSeconds: number;
+  // Sources
+  sourceNostr: boolean;
+  sourceBluesky: boolean;
+  blueskyHandle: string;
+  blueskyAppKey: string;
 }
 
 const CONFIG_KEY = 'yomi-config';
@@ -20,6 +25,11 @@ export const defaultConfig: Config = {
   displayLanguageSpecific: 'en',
   readingLimitMode: 'none',
   readingLimitSeconds: 30,
+  // Sources
+  sourceNostr: true,
+  sourceBluesky: false,
+  blueskyHandle: '',
+  blueskyAppKey: '',
 };
 
 export function loadConfig(): Config {

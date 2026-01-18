@@ -11,7 +11,7 @@ import {
   subscribeToNotes,
   publishNote,
 } from './nostr';
-import type { Profile, NoteEvent } from './nostr';
+import type { Profile } from './nostr';
 import { SpeechManager, processTextForSpeech } from './speech';
 import { VERSION, GITHUB_URL } from './version';
 import { log } from './utils';
@@ -22,13 +22,23 @@ import {
   languages,
 } from './config';
 import { detectLanguage, updateAuthorLanguage, getAuthorLanguage } from './config/langDetect';
+import * as bluesky from './bluesky';
 import i18n from './i18n';
 import './App.css';
 
 type AppState = 'idle' | 'loading' | 'running' | 'paused';
+type NoteSource = 'nostr' | 'bluesky';
 
-interface NoteWithRead extends NoteEvent {
+interface NoteWithRead {
+  id: string;
+  pubkey: string;
+  content: string;
+  created_at: number;
   read: boolean;
+  source: NoteSource;
+  // For Bluesky notes
+  authorName?: string;
+  authorAvatar?: string;
 }
 
 function App() {
@@ -48,6 +58,9 @@ function App() {
   const [showConfig, setShowConfig] = useState(false);
   const [config, setConfig] = useState<Config>(loadConfig);
   const [forcedLang, setForcedLang] = useState<string | null>(null);
+  const [postToNostr, setPostToNostr] = useState(true);
+  const [postToBluesky, setPostToBluesky] = useState(true);
+  const [blueskyProfile, setBlueskyProfile] = useState<bluesky.BlueskyProfile | null>(null);
 
   const recognitionRef = useRef<{ stop(): void } | null>(null);
   const configRef = useRef<Config>(config);
@@ -60,6 +73,9 @@ function App() {
   const isProcessingRef = useRef(false);
   const notesRef = useRef<NoteWithRead[]>([]);
   const appStateRef = useRef<AppState>('idle');
+  const blueskyFollowsRef = useRef<bluesky.BlueskyProfile[]>([]);
+  const blueskyPollingRef = useRef<number | null>(null);
+  const blueskyLastFetchRef = useRef<string | undefined>(undefined);
 
   // Initialize speech manager
   useEffect(() => {
@@ -101,8 +117,14 @@ function App() {
     }
   }, []);
 
-  // Load NIP-07 pubkey on mount
+  // Load NIP-07 pubkey on mount (only if Nostr source is enabled)
   useEffect(() => {
+    const cfg = loadConfig();
+    if (!cfg.sourceNostr) {
+      setNip07Loading(false);
+      return;
+    }
+
     const loadNip07 = async () => {
       // Small delay to ensure loading message is visible
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -115,6 +137,17 @@ function App() {
     };
     loadNip07();
   }, []);
+
+  // Load Bluesky profile when enabled and handle is set
+  useEffect(() => {
+    if (config.sourceBluesky && config.blueskyHandle) {
+      bluesky.getProfile(config.blueskyHandle).then((p) => {
+        setBlueskyProfile(p);
+      });
+    } else {
+      setBlueskyProfile(null);
+    }
+  }, [config.sourceBluesky, config.blueskyHandle]);
 
   const loadProfile = async (pubkey: string) => {
     const hexPubkey = parseHexOrNpub(pubkey);
@@ -168,8 +201,13 @@ function App() {
     setNotes(notesRef.current);
     setCurrentNoteId(noteToRead.id);
 
-    const authorProfile = profiles.get(noteToRead.pubkey);
-    const authorName = authorProfile?.display_name || authorProfile?.name || t('nostrAddress');
+    let authorName: string;
+    if (noteToRead.source === 'bluesky') {
+      authorName = noteToRead.authorName || t('blueskyAddress');
+    } else {
+      const authorProfile = profiles.get(noteToRead.pubkey);
+      authorName = authorProfile?.display_name || authorProfile?.name || t('nostrAddress');
+    }
 
     const processedText = processTextForSpeech(
       noteToRead.content,
@@ -219,10 +257,47 @@ function App() {
     }, timeoutSeconds);
   }, [profiles, t]);
 
-  const handleStart = async () => {
-    const hexPubkey = parseHexOrNpub(pubkeyInput);
-    if (!hexPubkey) return;
+  const addBlueskyPosts = useCallback((posts: bluesky.BlueskyPost[], isInitial: boolean = false) => {
+    if (posts.length === 0) return;
 
+    // For initial load, only keep the most recent post
+    const postsToAdd = isInitial ? [posts[0]] : posts;
+
+    for (const post of postsToAdd) {
+      // Skip if already exists
+      if (notesRef.current.some((n) => n.id === post.uri)) {
+        continue;
+      }
+
+      const noteWithRead: NoteWithRead = {
+        id: post.uri,
+        pubkey: post.author.did,
+        content: post.text,
+        created_at: Math.floor(new Date(post.createdAt).getTime() / 1000),
+        read: false,
+        source: 'bluesky',
+        authorName: post.author.displayName || post.author.handle,
+        authorAvatar: post.author.avatar,
+      };
+
+      // Update author language data
+      updateAuthorLanguage(post.author.did, post.text);
+      const detectedLang = detectLanguage(post.text);
+      log(`[bluesky] lang=${detectedLang}: ${post.text.slice(0, 30)}...`);
+
+      // Add to notes and sort by created_at
+      let newNotes = [noteWithRead, ...notesRef.current];
+      newNotes.sort((a, b) => b.created_at - a.created_at);
+      // Keep only first 200 notes (newest)
+      if (newNotes.length > 200) {
+        newNotes = newNotes.slice(0, 200);
+      }
+      notesRef.current = newNotes;
+      setNotes(newNotes);
+    }
+  }, []);
+
+  const handleStart = async () => {
     // Unlock speech on iOS (must be called on user interaction)
     speechManager.current?.unlock();
 
@@ -232,57 +307,107 @@ function App() {
     setCurrentNoteId(null);
 
     try {
-      // Fetch relay list
-      log('[start] fetching relay list...');
-      const relays = await fetchRelayList(hexPubkey);
-      log('[start] relay list:', relays.length, 'relays');
-      relaysRef.current = relays;
+      let hasAnySource = false;
 
-      // Fetch follow list
-      log('[start] fetching follow list...');
-      const followList = await fetchFollowList(hexPubkey, relays);
-      log('[start] follow list:', followList.length, 'follows');
-      if (followList.length === 0) {
+      // Nostr source
+      if (config.sourceNostr) {
+        const hexPubkey = parseHexOrNpub(pubkeyInput);
+        if (hexPubkey) {
+          // Fetch relay list
+          log('[start] fetching relay list...');
+          const relays = await fetchRelayList(hexPubkey);
+          log('[start] relay list:', relays.length, 'relays');
+          relaysRef.current = relays;
+
+          // Fetch follow list
+          log('[start] fetching follow list...');
+          const followList = await fetchFollowList(hexPubkey, relays);
+          log('[start] follow list:', followList.length, 'follows');
+
+          if (followList.length > 0) {
+            hasAnySource = true;
+
+            // Fetch profiles of followees (don't await, let it run in background)
+            log('[start] fetching profiles (background)...');
+            fetchProfiles(followList, relays, (p) => {
+              setProfiles((prev) => new Map(prev).set(p.pubkey, p));
+            });
+
+            // Subscribe to kind:1 notes
+            log('[start] subscribing to notes...');
+            const unsubscribe = subscribeToNotes(followList, relays, (note, shouldReplace) => {
+              // Skip if already exists
+              if (notesRef.current.some((n) => n.id === note.id)) {
+                return;
+              }
+
+              // Update author language data for auto-detection
+              updateAuthorLanguage(note.pubkey, note.content);
+              const detectedLang = detectLanguage(note.content);
+              log(`[note] lang=${detectedLang}: ${note.content.slice(0, 30)}...`);
+
+              let newNotes: NoteWithRead[];
+              if (shouldReplace) {
+                // Before EOSE: replace all unread notes with this one
+                const readNotes = notesRef.current.filter((n) => n.read);
+                newNotes = [{ ...note, read: false, source: 'nostr' }, ...readNotes];
+              } else {
+                // After EOSE: prepend new notes (newer at top)
+                newNotes = [{ ...note, read: false, source: 'nostr' }, ...notesRef.current];
+                newNotes.sort((a, b) => b.created_at - a.created_at);
+                // Keep only first 200 notes (newest)
+                if (newNotes.length > 200) {
+                  newNotes = newNotes.slice(0, 200);
+                }
+              }
+              notesRef.current = newNotes;
+              setNotes(newNotes);
+            });
+            unsubscribeRef.current = unsubscribe;
+          }
+        }
+      }
+
+      // Bluesky source
+      if (config.sourceBluesky && config.blueskyHandle) {
+        log('[start] fetching Bluesky follows...');
+        const follows = await bluesky.getFollows(config.blueskyHandle);
+        log('[start] Bluesky follows:', follows.length);
+        blueskyFollowsRef.current = follows;
+
+        if (follows.length > 0) {
+          hasAnySource = true;
+
+          // Fetch initial posts
+          log('[start] fetching Bluesky posts...');
+          const posts = await bluesky.getFollowsPosts(follows);
+          log('[start] Bluesky posts:', posts.length);
+          addBlueskyPosts(posts, true); // Initial load: only keep one post
+          if (posts.length > 0) {
+            blueskyLastFetchRef.current = posts[0].createdAt;
+          }
+
+          // Start polling for new posts
+          blueskyPollingRef.current = window.setInterval(async () => {
+            if (appStateRef.current !== 'running') return;
+            const newPosts = await bluesky.getFollowsPosts(
+              blueskyFollowsRef.current,
+              blueskyLastFetchRef.current
+            );
+            if (newPosts.length > 0) {
+              log('[bluesky] new posts:', newPosts.length);
+              addBlueskyPosts(newPosts);
+              blueskyLastFetchRef.current = newPosts[0].createdAt;
+            }
+          }, 30000); // Poll every 30 seconds
+        }
+      }
+
+      if (!hasAnySource) {
+        log('[start] no sources available');
         setAppState('idle');
         return;
       }
-
-      // Fetch profiles of followees (don't await, let it run in background)
-      log('[start] fetching profiles (background)...');
-      fetchProfiles(followList, relays, (p) => {
-        setProfiles((prev) => new Map(prev).set(p.pubkey, p));
-      });
-
-      // Subscribe to kind:1 notes
-      log('[start] subscribing to notes...');
-      const unsubscribe = subscribeToNotes(followList, relays, (note, shouldReplace) => {
-        // Skip if already exists
-        if (notesRef.current.some((n) => n.id === note.id)) {
-          return;
-        }
-
-        // Update author language data for auto-detection
-        updateAuthorLanguage(note.pubkey, note.content);
-        const detectedLang = detectLanguage(note.content);
-        log(`[note] lang=${detectedLang}: ${note.content.slice(0, 30)}...`);
-
-        let newNotes: NoteWithRead[];
-        if (shouldReplace) {
-          // Before EOSE: replace all unread notes with this one
-          const readNotes = notesRef.current.filter((n) => n.read);
-          newNotes = [{ ...note, read: false }, ...readNotes];
-        } else {
-          // After EOSE: prepend new notes (newer at top)
-          newNotes = [{ ...note, read: false }, ...notesRef.current];
-          // Keep only first 200 notes (newest)
-          if (newNotes.length > 200) {
-            newNotes = newNotes.slice(0, 200);
-          }
-        }
-        notesRef.current = newNotes;
-        setNotes(newNotes);
-      });
-      unsubscribeRef.current = unsubscribe;
 
       log('[start] running!');
       setAppState('running');
@@ -327,6 +452,13 @@ function App() {
     speechManager.current?.stop();
     unsubscribeRef.current?.();
     unsubscribeRef.current = null;
+    // Stop Bluesky polling
+    if (blueskyPollingRef.current) {
+      clearInterval(blueskyPollingRef.current);
+      blueskyPollingRef.current = null;
+    }
+    blueskyFollowsRef.current = [];
+    blueskyLastFetchRef.current = undefined;
     setAppState('idle');
     notesRef.current = [];
     setNotes([]);
@@ -337,11 +469,31 @@ function App() {
 
   const handlePost = async () => {
     if (!postContent.trim() || isPosting) return;
-    if (relaysRef.current.length === 0) return;
+
+    const canPostNostr = config.sourceNostr && postToNostr && relaysRef.current.length > 0;
+    const canPostBluesky = config.sourceBluesky && postToBluesky && config.blueskyAppKey;
+
+    if (!canPostNostr && !canPostBluesky) return;
 
     setIsPosting(true);
-    const success = await publishNote(postContent, relaysRef.current);
-    if (success) {
+
+    const results: boolean[] = [];
+
+    if (canPostNostr) {
+      const nostrSuccess = await publishNote(postContent, relaysRef.current);
+      results.push(nostrSuccess);
+    }
+
+    if (canPostBluesky) {
+      // Login if not already
+      if (!bluesky.isLoggedIn()) {
+        await bluesky.login(config.blueskyHandle, config.blueskyAppKey);
+      }
+      const bskySuccess = await bluesky.createPost(postContent);
+      results.push(bskySuccess);
+    }
+
+    if (results.some((r) => r)) {
       setPostContent('');
     }
     setIsPosting(false);
@@ -419,28 +571,42 @@ function App() {
 
       <div className="controls">
         <div className="pubkey-row">
-          {nip07Loading ? (
+          {config.sourceNostr && nip07Loading ? (
             <span className="nip07-loading">reading NIP-07 pubkey...</span>
           ) : (
             <>
-              <input
-                type="text"
-                className="pubkey-input"
-                value={pubkeyInput}
-                onChange={(e) => setPubkeyInput(e.target.value)}
-                onBlur={handlePubkeyBlur}
-                placeholder={t('pubkeyPlaceholder')}
-                disabled={isRunning}
-              />
-              {profileLoading ? (
-                <span className="nip07-loading">loading profile...</span>
-              ) : (
+              {config.sourceNostr && (
                 <>
-                  {profile?.picture && /^https?:\/\//i.test(profile.picture) && (
-                    <img src={profile.picture} alt="" className="profile-icon" />
+                  <input
+                    type="text"
+                    className="pubkey-input"
+                    value={pubkeyInput}
+                    onChange={(e) => setPubkeyInput(e.target.value)}
+                    onBlur={handlePubkeyBlur}
+                    placeholder={t('pubkeyPlaceholder')}
+                    disabled={isRunning}
+                  />
+                  {profileLoading ? (
+                    <span className="nip07-loading">loading profile...</span>
+                  ) : (
+                    <>
+                      {profile?.picture && /^https?:\/\//i.test(profile.picture) && (
+                        <img src={profile.picture} alt="" className="profile-icon" />
+                      )}
+                      <span className="profile-name">
+                        {profile?.display_name || profile?.name || ''}
+                      </span>
+                    </>
+                  )}
+                </>
+              )}
+              {config.sourceBluesky && !config.sourceNostr && (
+                <>
+                  {blueskyProfile?.avatar && /^https?:\/\//i.test(blueskyProfile.avatar) && (
+                    <img src={blueskyProfile.avatar} alt="" className="profile-icon" />
                   )}
                   <span className="profile-name">
-                    {profile?.display_name || profile?.name || ''}
+                    {blueskyProfile?.displayName || blueskyProfile?.handle || config.blueskyHandle || ''}
                   </span>
                 </>
               )}
@@ -451,7 +617,7 @@ function App() {
               ) : (
                 <button
                   onClick={handleStart}
-                  disabled={!pubkeyInput}
+                  disabled={config.sourceNostr ? !pubkeyInput : !config.blueskyHandle}
                   className="btn btn-start"
                 >
                   {t('start')}
@@ -462,27 +628,51 @@ function App() {
         </div>
 
         <div className="post-area">
-          <textarea
-            className="post-textarea"
-            value={postContent}
-            onChange={(e) => setPostContent(e.target.value)}
-            placeholder={t('postPlaceholder')}
-            disabled={isPosting || relaysRef.current.length === 0}
-          />
-          <button
-            className={`btn btn-mic ${isListening ? 'btn-mic-active' : ''}`}
-            onClick={handleSpeechRecognition}
-            disabled={isPosting}
-          >
-            {isListening ? '...' : t('mic')}
-          </button>
-          <button
-            className="btn btn-post"
-            onClick={handlePost}
-            disabled={!postContent.trim() || isPosting || relaysRef.current.length === 0}
-          >
-            {isPosting ? '...' : t('post')}
-          </button>
+          <div className="post-row">
+            <textarea
+              className="post-textarea"
+              value={postContent}
+              onChange={(e) => setPostContent(e.target.value)}
+              placeholder={t('postPlaceholder')}
+              disabled={isPosting}
+            />
+            <button
+              className={`btn btn-mic ${isListening ? 'btn-mic-active' : ''}`}
+              onClick={handleSpeechRecognition}
+              disabled={isPosting}
+            >
+              {isListening ? '...' : t('mic')}
+            </button>
+            <button
+              className="btn btn-post"
+              onClick={handlePost}
+              disabled={!postContent.trim() || isPosting}
+            >
+              {isPosting ? '...' : t('post')}
+            </button>
+          </div>
+          {config.sourceNostr && config.sourceBluesky && (
+            <div className="post-destinations">
+              <label className="post-dest-checkbox">
+                <input
+                  type="checkbox"
+                  checked={postToNostr}
+                  onChange={(e) => setPostToNostr(e.target.checked)}
+                  disabled={!config.sourceNostr}
+                />
+                {t('sourceNostr')}
+              </label>
+              <label className="post-dest-checkbox">
+                <input
+                  type="checkbox"
+                  checked={postToBluesky}
+                  onChange={(e) => setPostToBluesky(e.target.checked)}
+                  disabled={!config.sourceBluesky || !config.blueskyAppKey}
+                />
+                {t('sourceBluesky')}
+              </label>
+            </div>
+          )}
         </div>
 
         {isRunning && (
@@ -506,9 +696,16 @@ function App() {
       {notes.length > 0 && (
         <div className="notes-list">
           {notes.map((note) => {
-            const authorProfile = profiles.get(note.pubkey);
-            const name = authorProfile?.name || '';
-            const displayName = authorProfile?.display_name || '';
+            let name: string;
+            let displayName: string;
+            if (note.source === 'bluesky') {
+              name = '';
+              displayName = note.authorName || '';
+            } else {
+              const authorProfile = profiles.get(note.pubkey);
+              name = authorProfile?.name || '';
+              displayName = authorProfile?.display_name || '';
+            }
             const isCurrent = note.id === currentNoteId;
             return (
               <div
@@ -547,6 +744,44 @@ function App() {
               <button className="btn-close" onClick={() => setShowConfig(false)}>×</button>
             </div>
             <div className="config-content">
+              <div className="config-section">
+                <div className="config-label">{t('configSources')}</div>
+                <label className="config-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={config.sourceNostr}
+                    onChange={(e) => updateConfig({ sourceNostr: e.target.checked })}
+                  />
+                  {t('sourceNostr')} (NIP-07)
+                </label>
+                <label className="config-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={config.sourceBluesky}
+                    onChange={(e) => updateConfig({ sourceBluesky: e.target.checked })}
+                  />
+                  {t('sourceBluesky')}
+                </label>
+                {config.sourceBluesky && (
+                  <div className="config-bluesky-inputs">
+                    <input
+                      type="text"
+                      className="config-input-text"
+                      placeholder={t('blueskyHandlePlaceholder')}
+                      value={config.blueskyHandle}
+                      onChange={(e) => updateConfig({ blueskyHandle: e.target.value })}
+                    />
+                    <input
+                      type="password"
+                      className="config-input-text"
+                      placeholder={t('blueskyAppKey')}
+                      value={config.blueskyAppKey}
+                      onChange={(e) => updateConfig({ blueskyAppKey: e.target.value })}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="config-section">
                 <div className="config-label">{t('configReadingLanguage')}</div>
                 <label className="config-radio">
