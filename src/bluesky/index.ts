@@ -25,12 +25,32 @@ interface Session {
   refreshJwt: string;
 }
 
+const SESSION_KEY = 'bluesky_session';
+
 let session: Session | null = null;
+
+// Try to restore session from localStorage on load
+try {
+  const saved = localStorage.getItem(SESSION_KEY);
+  if (saved) {
+    session = JSON.parse(saved);
+    log('[bluesky] session restored for:', session?.handle);
+  }
+} catch (e) {
+  // Ignore errors
+}
 
 /**
  * Login to Bluesky with handle and app password
+ * @param force - Force new login even if session exists
  */
-export async function login(handle: string, appPassword: string): Promise<boolean> {
+export async function login(handle: string, appPassword: string, force = false): Promise<boolean> {
+  // Use existing session if not forced
+  if (!force && session && session.handle === handle) {
+    log('[bluesky] using existing session for:', handle);
+    return true;
+  }
+
   try {
     const res = await fetch(`${BSKY_API}/xrpc/com.atproto.server.createSession`, {
       method: 'POST',
@@ -42,6 +62,8 @@ export async function login(handle: string, appPassword: string): Promise<boolea
       return false;
     }
     session = await res.json();
+    // Save session to localStorage
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
     log('[bluesky] logged in as:', session?.handle);
     return true;
   } catch (e) {
@@ -55,6 +77,7 @@ export async function login(handle: string, appPassword: string): Promise<boolea
  */
 export function logout(): void {
   session = null;
+  localStorage.removeItem(SESSION_KEY);
 }
 
 /**
