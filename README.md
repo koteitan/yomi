@@ -92,6 +92,14 @@ The "Auto detect by author" and "Auto detect by note" features use [franc-min](h
 
 **Note**: For auto language detection to work correctly, the detected language must also be supported by TTS.
 
+### Tested Environments
+
+| OS | Browser | Foreground Playback | Background Playback | Bluetooth Playback | Bluetooth Speech Recognition |
+| --- | --- | :---: | :---: | :---: | :---: |
+| Windows 11 25H2 | Chrome 143.0.7499.194 | ✔ | ✔ | ✔ | ✔ |
+| iOS 26.2 | Safari 26.6 | ✔ | | | |
+| Android 13 | Chrome 143.0.7499.194 | ✔ | | ✔ | ✔ |
+
 ## For Developers
 ### Requirements
 - Node.js 18+

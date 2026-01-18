@@ -760,7 +760,7 @@ function App() {
               onClick={handleSpeechRecognition}
               disabled={isPosting}
             >
-              {isListening ? '...' : t('mic')}
+              {isListening ? t('micRecording') : t('mic')}
             </button>
           </div>
           {config.sourceNostr && config.sourceBluesky && (

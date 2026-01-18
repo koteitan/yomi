@@ -94,7 +94,8 @@
 .btn-start {
   background: #c4946a;
   color: #fff;
-  min-width: 70px;
+  width: 70px;
+  flex-shrink: 0;
   margin-left: auto;
 }
 
@@ -253,7 +254,8 @@
 .btn-post {
   background: #7a9f6a;
   color: #fff;
-  min-width: 70px;
+  width: 70px;
+  flex-shrink: 0;
 }
 
 .btn-post:hover:not(:disabled) {
@@ -263,7 +265,11 @@
 .btn-mic {
   background: #8a7d72;
   color: #fff;
-  min-width: 70px;
+  width: 70px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding-left: 8px;
+  padding-right: 8px;
 }
 
 .btn-mic:hover:not(:disabled) {
