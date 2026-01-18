@@ -229,6 +229,12 @@ function App() {
       const authorProfile = profiles.get(noteToRead.pubkey);
       authorName = authorProfile?.display_name || authorProfile?.name || t('nostrAddress');
     }
+    // Remove emojis and custom emojis (:name:) from author name
+    authorName = authorName
+      .replace(/:[a-zA-Z0-9_]+:/g, '') // Custom emojis like :smile:
+      .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{1FA00}-\u{1FAFF}]|[\u{FE00}-\u{FE0F}]|[\u{200D}]/gu, '') // Unicode emojis
+      .replace(/\s+/g, ' ') // Collapse multiple spaces
+      .trim();
     // Limit author name to 64 characters
     if (authorName.length > 64) {
       authorName = authorName.slice(0, 64);
