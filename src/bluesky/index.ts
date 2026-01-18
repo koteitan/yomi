@@ -251,3 +251,42 @@ export async function createPost(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Like a post (requires auth)
+ */
+export async function likePost(uri: string, cid: string): Promise<boolean> {
+  if (!session) {
+    log('[bluesky] not logged in');
+    return false;
+  }
+
+  try {
+    const res = await fetch(`${BSKY_API}/xrpc/com.atproto.repo.createRecord`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.accessJwt}`,
+      },
+      body: JSON.stringify({
+        repo: session.did,
+        collection: 'app.bsky.feed.like',
+        record: {
+          subject: { uri, cid },
+          createdAt: new Date().toISOString(),
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      log('[bluesky] likePost failed:', res.status);
+      return false;
+    }
+
+    log('[bluesky] post liked');
+    return true;
+  } catch (e) {
+    console.error('[bluesky] likePost error:', e);
+    return false;
+  }
+}

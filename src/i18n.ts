@@ -41,6 +41,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Bluesky address',
+      mute: 'Mute',
+      unmute: 'Unmute',
     },
   },
   ja: {
@@ -81,6 +83,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Blueskyアドレス',
+      mute: 'ミュート',
+      unmute: 'ミュート解除',
     },
   },
   zh: {
@@ -121,6 +125,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Bluesky地址',
+      mute: '静音',
+      unmute: '取消静音',
     },
   },
   ko: {
@@ -161,6 +167,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Bluesky 주소',
+      mute: '음소거',
+      unmute: '음소거 해제',
     },
   },
   es: {
@@ -201,6 +209,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Dirección Bluesky',
+      mute: 'Silenciar',
+      unmute: 'Activar sonido',
     },
   },
   fr: {
@@ -241,6 +251,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Adresse Bluesky',
+      mute: 'Muet',
+      unmute: 'Réactiver',
     },
   },
   de: {
@@ -281,6 +293,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Bluesky-Adresse',
+      mute: 'Stumm',
+      unmute: 'Ton an',
     },
   },
   it: {
@@ -321,6 +335,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Indirizzo Bluesky',
+      mute: 'Muto',
+      unmute: 'Riattiva',
     },
   },
   pt: {
@@ -361,6 +377,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Endereço Bluesky',
+      mute: 'Mudo',
+      unmute: 'Ativar som',
     },
   },
   ru: {
@@ -401,6 +419,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Адрес Bluesky',
+      mute: 'Без звука',
+      unmute: 'Включить звук',
     },
   },
   ar: {
@@ -441,6 +461,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'عنوان Bluesky',
+      mute: 'كتم',
+      unmute: 'إلغاء الكتم',
     },
   },
   hi: {
@@ -481,6 +503,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Bluesky पता',
+      mute: 'म्यूट',
+      unmute: 'अनम्यूट',
     },
   },
   th: {
@@ -521,6 +545,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'ที่อยู่ Bluesky',
+      mute: 'ปิดเสียง',
+      unmute: 'เปิดเสียง',
     },
   },
   vi: {
@@ -561,6 +587,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Địa chỉ Bluesky',
+      mute: 'Tắt tiếng',
+      unmute: 'Bật tiếng',
     },
   },
   nl: {
@@ -601,6 +629,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Bluesky-adres',
+      mute: 'Dempen',
+      unmute: 'Dempen uit',
     },
   },
   pl: {
@@ -641,6 +671,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Adres Bluesky',
+      mute: 'Wycisz',
+      unmute: 'Włącz dźwięk',
     },
   },
   tr: {
@@ -681,6 +713,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Bluesky adresi',
+      mute: 'Sessize al',
+      unmute: 'Sesi aç',
     },
   },
   uk: {
@@ -721,6 +755,8 @@ const resources = {
       blueskyHandlePlaceholder: 'username.bsky.social',
       blueskyAppKey: 'App Key',
       blueskyAddress: 'Адреса Bluesky',
+      mute: 'Вимкнути звук',
+      unmute: 'Увімкнути звук',
     },
   },
 };

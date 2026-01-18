@@ -10,6 +10,7 @@ import {
   fetchProfiles,
   subscribeToNotes,
   publishNote,
+  publishReaction,
 } from './nostr';
 import type { Profile } from './nostr';
 import { SpeechManager, processTextForSpeech } from './speech';
@@ -39,6 +40,7 @@ interface NoteWithRead {
   // For Bluesky notes
   authorName?: string;
   authorAvatar?: string;
+  cid?: string; // For Bluesky likes
 }
 
 function App() {
@@ -61,8 +63,11 @@ function App() {
   const [postToNostr, setPostToNostr] = useState(true);
   const [postToBluesky, setPostToBluesky] = useState(true);
   const [blueskyProfile, setBlueskyProfile] = useState<bluesky.BlueskyProfile | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [favoritedNotes, setFavoritedNotes] = useState<Set<string>>(new Set());
 
   const recognitionRef = useRef<{ stop(): void } | null>(null);
+  const isMutedRef = useRef(false);
   const configRef = useRef<Config>(config);
   const forcedLangRef = useRef<string | null>(null);
 
@@ -99,6 +104,11 @@ function App() {
   useEffect(() => {
     forcedLangRef.current = forcedLang;
   }, [forcedLang]);
+
+  // Keep isMutedRef in sync
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   // Check for ?lang= query parameter and apply forced language
   useEffect(() => {
@@ -246,15 +256,23 @@ function App() {
     const timeoutSeconds = cfg.readingLimitMode === 'limit' ? cfg.readingLimitSeconds : undefined;
 
     const noteNo = ++readingCountRef.current;
-    log(`[reading]#${noteNo}(${readingLang}):${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
-    speechManager.current?.speak(fullText, readingLang, () => {
+    const onEnd = () => {
       log(`[done   ]#${noteNo}`);
       isProcessingRef.current = false;
       setCurrentNoteId(null);
       if (appStateRef.current === 'running') {
         processNextNote();
       }
-    }, timeoutSeconds);
+    };
+
+    if (isMutedRef.current) {
+      // Mute mode: wait 3 seconds silently
+      log(`[muted ]#${noteNo}:${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
+      setTimeout(onEnd, 3000);
+    } else {
+      log(`[reading]#${noteNo}(${readingLang}):${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
+      speechManager.current?.speak(fullText, readingLang, onEnd, timeoutSeconds);
+    }
   }, [profiles, t]);
 
   const addBlueskyPosts = useCallback((posts: bluesky.BlueskyPost[], isInitial: boolean = false) => {
@@ -278,6 +296,7 @@ function App() {
         source: 'bluesky',
         authorName: post.author.displayName || post.author.handle,
         authorAvatar: post.author.avatar,
+        cid: post.cid,
       };
 
       // Update author language data
@@ -446,6 +465,50 @@ function App() {
 
   const handleSkip = () => {
     speechManager.current?.skip();
+  };
+
+  const handleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    // If turning mute ON while speaking, skip current speech
+    if (newMuted && currentNoteId) {
+      speechManager.current?.skip();
+    }
+  };
+
+  const handleFavorite = async (note: NoteWithRead) => {
+    if (favoritedNotes.has(note.id)) return;
+
+    if (note.source === 'nostr') {
+      const success = await publishReaction(note.id, note.pubkey, relaysRef.current);
+      if (success) {
+        setFavoritedNotes((prev) => new Set(prev).add(note.id));
+      }
+    } else if (note.source === 'bluesky' && note.cid) {
+      if (!bluesky.isLoggedIn() && config.blueskyAppKey) {
+        await bluesky.login(config.blueskyHandle, config.blueskyAppKey);
+      }
+      const success = await bluesky.likePost(note.id, note.cid);
+      if (success) {
+        setFavoritedNotes((prev) => new Set(prev).add(note.id));
+      }
+    }
+  };
+
+  const handleOpenFeed = (note: NoteWithRead) => {
+    if (note.source === 'nostr') {
+      // Open in njump.me
+      const nevent = note.id; // TODO: encode as nevent
+      window.open(`https://njump.me/${nevent}`, '_blank');
+    } else if (note.source === 'bluesky') {
+      // Convert at:// URI to web URL
+      // at://did:plc:xxx/app.bsky.feed.post/yyy -> https://bsky.app/profile/did:plc:xxx/post/yyy
+      const match = note.id.match(/^at:\/\/([^/]+)\/app\.bsky\.feed\.post\/(.+)$/);
+      if (match) {
+        const [, did, postId] = match;
+        window.open(`https://bsky.app/profile/${did}/post/${postId}`, '_blank');
+      }
+    }
   };
 
   const handleStop = () => {
@@ -689,6 +752,12 @@ function App() {
             <button onClick={handleSkip} className="btn btn-skip">
               {t('skip')}
             </button>
+            <button
+              onClick={handleMute}
+              className={`btn ${isMuted ? 'btn-mute-active' : 'btn-mute'}`}
+            >
+              {isMuted ? t('unmute') : t('mute')}
+            </button>
           </div>
         )}
       </div>
@@ -707,6 +776,7 @@ function App() {
               displayName = authorProfile?.display_name || '';
             }
             const isCurrent = note.id === currentNoteId;
+            const isFavorited = favoritedNotes.has(note.id);
             return (
               <div
                 key={note.id}
@@ -716,6 +786,33 @@ function App() {
                   @{name} {displayName}
                 </span>
                 <span className="note-content">{note.content}</span>
+                <span className="note-actions">
+                  <button
+                    className={`note-action-btn note-fav ${isFavorited ? 'favorited' : ''}`}
+                    onClick={() => handleFavorite(note)}
+                    disabled={isFavorited}
+                    title="Favorite"
+                  >
+                    <svg viewBox="0 0 24 24" className="icon-heart">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                    </svg>
+                  </button>
+                  <button
+                    className="note-action-btn note-source"
+                    onClick={() => handleOpenFeed(note)}
+                    title={note.source === 'nostr' ? 'Open in Nostr' : 'Open in Bluesky'}
+                  >
+                    {note.source === 'nostr' ? (
+                      <svg viewBox="0 0 24 24" className="icon-nostr">
+                        <path d="M12 3c-1.5 0-2.5 1-3 2l-1 3-4 1c0 2 1 3 2 4l-1 5c0 1 1 2 2 2l2-1 1 3h2l1-3 2 1c1 0 2-1 2-2l-1-5c1-1 2-2 2-4l-4-1-1-3c-.5-1-1.5-2-3-2z" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" className="icon-bluesky">
+                        <path d="M12 4C9 4 6 7 6 10c0 2 1 3 2 4-2 0-4 1-4 3 0 1 1 2 2 2 2 0 4-1 6-3 2 2 4 3 6 3 1 0 2-1 2-2 0-2-2-3-4-3 1-1 2-2 2-4 0-3-3-6-6-6z" />
+                      </svg>
+                    )}
+                  </button>
+                </span>
               </div>
             );
           })}

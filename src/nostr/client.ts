@@ -420,6 +420,37 @@ export async function publishNote(content: string, relays: string[]): Promise<bo
   }
 }
 
+export async function publishReaction(eventId: string, eventPubkey: string, relays: string[]): Promise<boolean> {
+  if (!window.nostr) {
+    console.error('NIP-07 not available');
+    return false;
+  }
+
+  try {
+    const event = {
+      kind: 7,
+      content: '+',
+      tags: [
+        ['e', eventId],
+        ['p', eventPubkey],
+      ],
+      created_at: Math.floor(Date.now() / 1000),
+    };
+
+    const signedEvent = await window.nostr.signEvent(event);
+    log('[reaction] signed event:', signedEvent.id);
+
+    rxNostr.setDefaultRelays(relays);
+    rxNostr.send(signedEvent);
+    log('[reaction] sent to relays');
+
+    return true;
+  } catch (error) {
+    console.error('[reaction] error:', error);
+    return false;
+  }
+}
+
 export function cleanup() {
   rxNostr.dispose();
 }

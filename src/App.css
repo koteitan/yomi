@@ -156,6 +156,26 @@
   background: #7a6d62;
 }
 
+.btn-mute {
+  background: #8a7d72;
+  color: #fff;
+  flex: 1;
+}
+
+.btn-mute:hover {
+  background: #7a6d62;
+}
+
+.btn-mute-active {
+  background: #c47a6a;
+  color: #fff;
+  flex: 1;
+}
+
+.btn-mute-active:hover {
+  background: #b46a5a;
+}
+
 .btn-stop {
   background: #c47a6a;
   color: #fff;
@@ -350,6 +370,61 @@
 
 .note-item.current .note-content {
   color: #000;
+}
+
+.note-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.note-action-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  vertical-align: middle;
+}
+
+.note-action-btn:disabled {
+  cursor: default;
+}
+
+.note-action-btn svg {
+  width: 100%;
+  height: 100%;
+}
+
+.icon-heart {
+  fill: transparent;
+  stroke: #8a7d72;
+  stroke-width: 2;
+}
+
+.note-fav:hover .icon-heart {
+  stroke: #c47a6a;
+}
+
+.note-fav.favorited .icon-heart {
+  fill: #8a7d72;
+  stroke: #8a7d72;
+}
+
+.icon-nostr,
+.icon-bluesky {
+  fill: #8a7d72;
+}
+
+.note-source:hover .icon-nostr,
+.note-source:hover .icon-bluesky {
+  fill: #5c4a3d;
 }
 
 .config-row {
