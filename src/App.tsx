@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import {
   getNip07Pubkey,
   parseHexOrNpub,
-  hexToNpub,
   fetchRelayList,
   fetchProfile,
   fetchFollowList,
@@ -46,9 +45,9 @@ interface NoteWithRead {
 function App() {
   const { t } = useTranslation();
 
-  const [pubkeyInput, setPubkeyInput] = useState('');
+  const [nip07Pubkey, setNip07Pubkey] = useState<string | null>(null);
   const [nip07Loading, setNip07Loading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [nostrProfileLoading, setNostrProfileLoading] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [appState, setAppState] = useState<AppState>('idle');
   const [notes, setNotes] = useState<NoteWithRead[]>([]);
@@ -127,26 +126,59 @@ function App() {
     }
   }, []);
 
-  // Load NIP-07 pubkey on mount (only if Nostr source is enabled)
+  // Load NIP-07 pubkey when Nostr source is enabled with NIP-07 mode
   useEffect(() => {
-    const cfg = loadConfig();
-    if (!cfg.sourceNostr) {
+    if (!config.sourceNostr || config.nostrAuthMode !== 'nip07') {
       setNip07Loading(false);
       return;
     }
 
+    // Already have NIP-07 pubkey
+    if (nip07Pubkey) {
+      setNip07Loading(false);
+      return;
+    }
+
+    setNip07Loading(true);
     const loadNip07 = async () => {
-      // Small delay to ensure loading message is visible
       await new Promise((resolve) => setTimeout(resolve, 100));
       const pubkey = await getNip07Pubkey();
       setNip07Loading(false);
       if (pubkey) {
-        setPubkeyInput(hexToNpub(pubkey));
-        loadProfile(pubkey);
+        setNip07Pubkey(pubkey);
       }
     };
     loadNip07();
-  }, []);
+  }, [config.sourceNostr, config.nostrAuthMode, nip07Pubkey]);
+
+  // Get current Nostr pubkey based on auth mode
+  const getNostrPubkey = useCallback((): string | null => {
+    if (!config.sourceNostr) return null;
+    if (config.nostrAuthMode === 'nip07') {
+      return nip07Pubkey;
+    } else {
+      return parseHexOrNpub(config.nostrPubkey);
+    }
+  }, [config.sourceNostr, config.nostrAuthMode, config.nostrPubkey, nip07Pubkey]);
+
+  // Load Nostr profile when pubkey changes
+  useEffect(() => {
+    const pubkey = getNostrPubkey();
+    if (!pubkey) {
+      setProfile(null);
+      return;
+    }
+
+    const loadNostrProfile = async () => {
+      setNostrProfileLoading(true);
+      const relays = await fetchRelayList(pubkey);
+      relaysRef.current = relays;
+      const profileData = await fetchProfile(pubkey, relays);
+      setProfile(profileData);
+      setNostrProfileLoading(false);
+    };
+    loadNostrProfile();
+  }, [getNostrPubkey]);
 
   // Load Bluesky profile when enabled and handle is set
   useEffect(() => {
@@ -158,27 +190,6 @@ function App() {
       setBlueskyProfile(null);
     }
   }, [config.sourceBluesky, config.blueskyHandle]);
-
-  const loadProfile = async (pubkey: string) => {
-    const hexPubkey = parseHexOrNpub(pubkey);
-    if (!hexPubkey) return;
-
-    setProfileLoading(true);
-    const relays = await fetchRelayList(hexPubkey);
-    relaysRef.current = relays;
-    const profileData = await fetchProfile(hexPubkey, relays);
-    setProfile(profileData);
-    setProfileLoading(false);
-  };
-
-  const handlePubkeyBlur = () => {
-    const hexPubkey = parseHexOrNpub(pubkeyInput);
-    if (hexPubkey) {
-      loadProfile(pubkeyInput);
-    } else {
-      setProfile(null);
-    }
-  };
 
   const processNextNote = useCallback(() => {
     if (isProcessingRef.current) {
@@ -217,6 +228,10 @@ function App() {
     } else {
       const authorProfile = profiles.get(noteToRead.pubkey);
       authorName = authorProfile?.display_name || authorProfile?.name || t('nostrAddress');
+    }
+    // Limit author name to 64 characters
+    if (authorName.length > 64) {
+      authorName = authorName.slice(0, 64);
     }
 
     const processedText = processTextForSpeech(
@@ -330,7 +345,7 @@ function App() {
 
       // Nostr source
       if (config.sourceNostr) {
-        const hexPubkey = parseHexOrNpub(pubkeyInput);
+        const hexPubkey = getNostrPubkey();
         if (hexPubkey) {
           // Fetch relay list
           log('[start] fetching relay list...');
@@ -633,60 +648,47 @@ function App() {
       </div>
 
       <div className="controls">
-        <div className="pubkey-row">
-          {config.sourceNostr && nip07Loading ? (
-            <span className="nip07-loading">reading NIP-07 pubkey...</span>
-          ) : (
+        <div className="profile-row">
+          {config.sourceNostr && (
             <>
-              {config.sourceNostr && (
+              {config.nostrAuthMode === 'nip07' && nip07Loading ? (
+                <span className="profile-loading">{t('loadingNip07')}</span>
+              ) : nostrProfileLoading ? (
+                <span className="profile-loading">{t('loadingProfile')}</span>
+              ) : (
                 <>
-                  <input
-                    type="text"
-                    className="pubkey-input"
-                    value={pubkeyInput}
-                    onChange={(e) => setPubkeyInput(e.target.value)}
-                    onBlur={handlePubkeyBlur}
-                    placeholder={t('pubkeyPlaceholder')}
-                    disabled={isRunning}
-                  />
-                  {profileLoading ? (
-                    <span className="nip07-loading">loading profile...</span>
-                  ) : (
-                    <>
-                      {profile?.picture && /^https?:\/\//i.test(profile.picture) && (
-                        <img src={profile.picture} alt="" className="profile-icon" />
-                      )}
-                      <span className="profile-name">
-                        {profile?.display_name || profile?.name || ''}
-                      </span>
-                    </>
-                  )}
-                </>
-              )}
-              {config.sourceBluesky && !config.sourceNostr && (
-                <>
-                  {blueskyProfile?.avatar && /^https?:\/\//i.test(blueskyProfile.avatar) && (
-                    <img src={blueskyProfile.avatar} alt="" className="profile-icon" />
+                  {profile?.picture && /^https?:\/\//i.test(profile.picture) && (
+                    <img src={profile.picture} alt="" className="profile-icon" />
                   )}
                   <span className="profile-name">
-                    {blueskyProfile?.displayName || blueskyProfile?.handle || config.blueskyHandle || ''}
+                    {profile?.display_name || profile?.name || ''}
                   </span>
                 </>
               )}
-              {isRunning || appState === 'loading' ? (
-                <button onClick={handleStop} className="btn btn-stop">
-                  {t('stop')}
-                </button>
-              ) : (
-                <button
-                  onClick={handleStart}
-                  disabled={config.sourceNostr ? !pubkeyInput : !config.blueskyHandle}
-                  className="btn btn-start"
-                >
-                  {t('start')}
-                </button>
-              )}
             </>
+          )}
+          {config.sourceBluesky && (
+            <>
+              {blueskyProfile?.avatar && /^https?:\/\//i.test(blueskyProfile.avatar) && (
+                <img src={blueskyProfile.avatar} alt="" className="profile-icon" />
+              )}
+              <span className="profile-name">
+                {blueskyProfile?.displayName || blueskyProfile?.handle || config.blueskyHandle || ''}
+              </span>
+            </>
+          )}
+          {isRunning || appState === 'loading' ? (
+            <button onClick={handleStop} className="btn btn-stop">
+              {t('stop')}
+            </button>
+          ) : (
+            <button
+              onClick={handleStart}
+              disabled={config.sourceNostr ? !getNostrPubkey() : !config.blueskyHandle}
+              className="btn btn-start"
+            >
+              {t('start')}
+            </button>
           )}
         </div>
 
@@ -782,10 +784,12 @@ function App() {
                 key={note.id}
                 className={`note-item ${note.read ? 'read' : 'unread'} ${isCurrent ? 'current' : ''}`}
               >
-                <span className="note-author">
-                  @{name} {displayName}
-                </span>
-                <span className="note-content">{note.content}</span>
+                <div className="note-text">
+                  <span className="note-author">
+                    @{name} {displayName}
+                  </span>
+                  <span className="note-content">{note.content}</span>
+                </div>
                 <span className="note-actions">
                   <button
                     className={`note-action-btn note-fav ${isFavorited ? 'favorited' : ''}`}
@@ -849,8 +853,38 @@ function App() {
                     checked={config.sourceNostr}
                     onChange={(e) => updateConfig({ sourceNostr: e.target.checked })}
                   />
-                  {t('sourceNostr')} (NIP-07)
+                  {t('sourceNostr')}
                 </label>
+                {config.sourceNostr && (
+                  <div className="config-nostr-inputs">
+                    <label className="config-radio">
+                      <input
+                        type="radio"
+                        name="nostrAuth"
+                        checked={config.nostrAuthMode === 'nip07'}
+                        onChange={() => updateConfig({ nostrAuthMode: 'nip07' })}
+                      />
+                      NIP-07
+                    </label>
+                    <label className="config-radio">
+                      <input
+                        type="radio"
+                        name="nostrAuth"
+                        checked={config.nostrAuthMode === 'pubkey'}
+                        onChange={() => updateConfig({ nostrAuthMode: 'pubkey' })}
+                      />
+                      {t('configInputPubkey')}
+                    </label>
+                    <input
+                      type="text"
+                      className="config-input-text"
+                      placeholder={t('pubkeyPlaceholder')}
+                      value={config.nostrPubkey}
+                      onChange={(e) => updateConfig({ nostrPubkey: e.target.value })}
+                      disabled={config.nostrAuthMode === 'nip07'}
+                    />
+                  </div>
+                )}
                 <label className="config-checkbox">
                   <input
                     type="checkbox"

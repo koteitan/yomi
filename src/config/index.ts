@@ -1,6 +1,7 @@
 export type ReadingLanguageMode = 'browser' | 'autoAuthor' | 'autoNote' | 'specific';
 export type DisplayLanguageMode = 'browser' | 'specific';
 export type ReadingLimitMode = 'none' | 'limit';
+export type NostrAuthMode = 'nip07' | 'pubkey';
 
 export interface Config {
   readingLanguageMode: ReadingLanguageMode;
@@ -11,6 +12,8 @@ export interface Config {
   readingLimitSeconds: number;
   // Sources
   sourceNostr: boolean;
+  nostrAuthMode: NostrAuthMode;
+  nostrPubkey: string;
   sourceBluesky: boolean;
   blueskyHandle: string;
   blueskyAppKey: string;
@@ -27,6 +30,8 @@ export const defaultConfig: Config = {
   readingLimitSeconds: 30,
   // Sources
   sourceNostr: true,
+  nostrAuthMode: 'nip07',
+  nostrPubkey: '',
   sourceBluesky: false,
   blueskyHandle: '',
   blueskyAppKey: '',

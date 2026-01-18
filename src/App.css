@@ -38,37 +38,12 @@
   margin-bottom: 20px;
 }
 
-.pubkey-row {
+.profile-row {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
-}
-
-.pubkey-input {
-  flex: 1;
-  min-width: 150px;
-  padding: 10px 14px;
-  border: 2px solid #d4c4b5;
-  border-radius: 8px;
-  font-size: 14px;
-  background: #fff;
-  color: #4a3f35;
-}
-
-.pubkey-input:focus {
-  outline: none;
-  border-color: #b89f8a;
-}
-
-.pubkey-input:disabled {
-  background: #ebe5df;
-  color: #8a7d72;
-}
-
-.pubkey-input::placeholder {
-  color: #a89888;
 }
 
 .profile-icon {
@@ -85,7 +60,7 @@
   font-size: 15px;
 }
 
-.nip07-loading {
+.profile-loading {
   color: #8a7d72;
   font-size: 14px;
   padding: 10px 0;
@@ -120,6 +95,7 @@
   background: #c4946a;
   color: #fff;
   min-width: 70px;
+  margin-left: auto;
 }
 
 .btn-start:hover:not(:disabled) {
@@ -180,6 +156,7 @@
   background: #c47a6a;
   color: #fff;
   min-width: 70px;
+  margin-left: auto;
 }
 
 .btn-stop:hover {
@@ -217,10 +194,36 @@
 .post-dest-checkbox input[type="checkbox"] {
   margin: 0;
   cursor: pointer;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #b89f8a;
+  border-radius: 3px;
+  background: #fff;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.post-dest-checkbox input[type="checkbox"]:checked {
+  background: #b89f8a;
+  border-color: #b89f8a;
+}
+
+.post-dest-checkbox input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 4px;
+  height: 7px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .post-dest-checkbox input[type="checkbox"]:disabled {
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .post-textarea {
@@ -321,10 +324,17 @@
 }
 
 .note-item {
+  display: flex;
+  align-items: flex-start;
   padding: 8px 12px;
   border-bottom: 1px solid #e8e0d8;
   font-size: 13px;
   line-height: 1.4;
+}
+
+.note-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .note-item:last-child {
@@ -373,11 +383,11 @@
 }
 
 .note-actions {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 4px;
   margin-left: 8px;
-  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .note-action-btn {
@@ -523,6 +533,19 @@
 .config-radio input[type="radio"] {
   margin: 0;
   cursor: pointer;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #b89f8a;
+  border-radius: 50%;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.config-radio input[type="radio"]:checked {
+  background: #b89f8a;
+  border-color: #b89f8a;
+  box-shadow: inset 0 0 0 3px #fff;
 }
 
 .config-checkbox {
@@ -537,6 +560,43 @@
 .config-checkbox input[type="checkbox"] {
   margin: 0;
   cursor: pointer;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #b89f8a;
+  border-radius: 4px;
+  background: #fff;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.config-checkbox input[type="checkbox"]:checked {
+  background: #b89f8a;
+  border-color: #b89f8a;
+}
+
+.config-checkbox input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.config-nostr-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 24px;
+  margin-top: 4px;
+}
+
+.config-nostr-inputs .config-input-text {
+  margin-left: 24px;
 }
 
 .config-bluesky-inputs {
@@ -604,11 +664,6 @@
 
   .controls {
     padding: 12px;
-  }
-
-  .pubkey-input {
-    font-size: 12px;
-    padding: 8px 10px;
   }
 
   .profile-icon {

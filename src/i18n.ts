@@ -43,6 +43,9 @@ const resources = {
       blueskyAddress: 'Bluesky address',
       mute: 'Mute',
       unmute: 'Unmute',
+      loadingNip07: 'Reading NIP-07 pubkey...',
+      loadingProfile: 'Loading profile...',
+      configInputPubkey: 'Input pubkey',
     },
   },
   ja: {
@@ -85,6 +88,9 @@ const resources = {
       blueskyAddress: 'Blueskyアドレス',
       mute: 'ミュート',
       unmute: 'ミュート解除',
+      loadingNip07: 'NIP-07公開鍵を読み込み中...',
+      loadingProfile: 'プロフィール読み込み中...',
+      configInputPubkey: '公開鍵を入力',
     },
   },
   zh: {
@@ -127,6 +133,9 @@ const resources = {
       blueskyAddress: 'Bluesky地址',
       mute: '静音',
       unmute: '取消静音',
+      loadingNip07: '正在读取NIP-07公钥...',
+      loadingProfile: '正在加载资料...',
+      configInputPubkey: '输入公钥',
     },
   },
   ko: {
@@ -169,6 +178,9 @@ const resources = {
       blueskyAddress: 'Bluesky 주소',
       mute: '음소거',
       unmute: '음소거 해제',
+      loadingNip07: 'NIP-07 공개키 읽는 중...',
+      loadingProfile: '프로필 로딩 중...',
+      configInputPubkey: '공개키 입력',
     },
   },
   es: {
@@ -211,6 +223,9 @@ const resources = {
       blueskyAddress: 'Dirección Bluesky',
       mute: 'Silenciar',
       unmute: 'Activar sonido',
+      loadingNip07: 'Leyendo clave pública NIP-07...',
+      loadingProfile: 'Cargando perfil...',
+      configInputPubkey: 'Ingresar clave pública',
     },
   },
   fr: {
@@ -253,6 +268,9 @@ const resources = {
       blueskyAddress: 'Adresse Bluesky',
       mute: 'Muet',
       unmute: 'Réactiver',
+      loadingNip07: 'Lecture de la clé publique NIP-07...',
+      loadingProfile: 'Chargement du profil...',
+      configInputPubkey: 'Saisir la clé publique',
     },
   },
   de: {
@@ -295,6 +313,9 @@ const resources = {
       blueskyAddress: 'Bluesky-Adresse',
       mute: 'Stumm',
       unmute: 'Ton an',
+      loadingNip07: 'NIP-07 Pubkey wird gelesen...',
+      loadingProfile: 'Profil wird geladen...',
+      configInputPubkey: 'Pubkey eingeben',
     },
   },
   it: {
@@ -337,6 +358,9 @@ const resources = {
       blueskyAddress: 'Indirizzo Bluesky',
       mute: 'Muto',
       unmute: 'Riattiva',
+      loadingNip07: 'Lettura chiave pubblica NIP-07...',
+      loadingProfile: 'Caricamento profilo...',
+      configInputPubkey: 'Inserisci chiave pubblica',
     },
   },
   pt: {
@@ -379,6 +403,9 @@ const resources = {
       blueskyAddress: 'Endereço Bluesky',
       mute: 'Mudo',
       unmute: 'Ativar som',
+      loadingNip07: 'Lendo chave pública NIP-07...',
+      loadingProfile: 'Carregando perfil...',
+      configInputPubkey: 'Inserir chave pública',
     },
   },
   ru: {
@@ -421,6 +448,9 @@ const resources = {
       blueskyAddress: 'Адрес Bluesky',
       mute: 'Без звука',
       unmute: 'Включить звук',
+      loadingNip07: 'Чтение публичного ключа NIP-07...',
+      loadingProfile: 'Загрузка профиля...',
+      configInputPubkey: 'Ввести публичный ключ',
     },
   },
   ar: {
@@ -463,6 +493,9 @@ const resources = {
       blueskyAddress: 'عنوان Bluesky',
       mute: 'كتم',
       unmute: 'إلغاء الكتم',
+      loadingNip07: 'جاري قراءة مفتاح NIP-07...',
+      loadingProfile: 'جاري تحميل الملف الشخصي...',
+      configInputPubkey: 'إدخال المفتاح العام',
     },
   },
   hi: {
@@ -505,6 +538,9 @@ const resources = {
       blueskyAddress: 'Bluesky पता',
       mute: 'म्यूट',
       unmute: 'अनम्यूट',
+      loadingNip07: 'NIP-07 पब्लिक की पढ़ रहा है...',
+      loadingProfile: 'प्रोफ़ाइल लोड हो रहा है...',
+      configInputPubkey: 'पब्लिक की दर्ज करें',
     },
   },
   th: {
@@ -547,6 +583,9 @@ const resources = {
       blueskyAddress: 'ที่อยู่ Bluesky',
       mute: 'ปิดเสียง',
       unmute: 'เปิดเสียง',
+      loadingNip07: 'กำลังอ่าน NIP-07 pubkey...',
+      loadingProfile: 'กำลังโหลดโปรไฟล์...',
+      configInputPubkey: 'ใส่ pubkey',
     },
   },
   vi: {
@@ -589,6 +628,9 @@ const resources = {
       blueskyAddress: 'Địa chỉ Bluesky',
       mute: 'Tắt tiếng',
       unmute: 'Bật tiếng',
+      loadingNip07: 'Đang đọc khóa công khai NIP-07...',
+      loadingProfile: 'Đang tải hồ sơ...',
+      configInputPubkey: 'Nhập khóa công khai',
     },
   },
   nl: {
@@ -631,6 +673,9 @@ const resources = {
       blueskyAddress: 'Bluesky-adres',
       mute: 'Dempen',
       unmute: 'Dempen uit',
+      loadingNip07: 'NIP-07 pubkey wordt gelezen...',
+      loadingProfile: 'Profiel wordt geladen...',
+      configInputPubkey: 'Pubkey invoeren',
     },
   },
   pl: {
@@ -673,6 +718,9 @@ const resources = {
       blueskyAddress: 'Adres Bluesky',
       mute: 'Wycisz',
       unmute: 'Włącz dźwięk',
+      loadingNip07: 'Odczytywanie klucza publicznego NIP-07...',
+      loadingProfile: 'Ładowanie profilu...',
+      configInputPubkey: 'Wprowadź klucz publiczny',
     },
   },
   tr: {
@@ -715,6 +763,9 @@ const resources = {
       blueskyAddress: 'Bluesky adresi',
       mute: 'Sessize al',
       unmute: 'Sesi aç',
+      loadingNip07: 'NIP-07 pubkey okunuyor...',
+      loadingProfile: 'Profil yükleniyor...',
+      configInputPubkey: 'Pubkey girin',
     },
   },
   uk: {
@@ -757,6 +808,9 @@ const resources = {
       blueskyAddress: 'Адреса Bluesky',
       mute: 'Вимкнути звук',
       unmute: 'Увімкнути звук',
+      loadingNip07: 'Читання публічного ключа NIP-07...',
+      loadingProfile: 'Завантаження профілю...',
+      configInputPubkey: 'Ввести публічний ключ',
     },
   },
 };
