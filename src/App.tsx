@@ -14,7 +14,7 @@ import {
 import type { Profile } from './nostr';
 import { SpeechManager, processTextForSpeech } from './speech';
 import { VERSION, GITHUB_URL } from './version';
-import { log, monevent } from './utils';
+import { log, startmon, logNostr, logBluesky, logNostrEvent, logBlueskyEvent, logReading, logSpeech } from './utils';
 import {
   type Config,
   loadConfig,
@@ -80,6 +80,7 @@ function App() {
   const blueskyFollowsRef = useRef<bluesky.BlueskyProfile[]>([]);
   const blueskyPollingRef = useRef<number | null>(null);
   const blueskyLastFetchRef = useRef<string | undefined>(undefined);
+  const profilesRef = useRef<Map<string, Profile>>(new Map());
 
   // Initialize speech manager
   useEffect(() => {
@@ -110,13 +111,18 @@ function App() {
     isMutedRef.current = isMuted;
   }, [isMuted]);
 
+  // Keep profilesRef in sync
+  useEffect(() => {
+    profilesRef.current = profiles;
+  }, [profiles]);
+
   // Check for query parameters on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
-    // ?monevent - enable event logging
-    if (params.has('monevent')) {
-      monevent(true);
+    // ?startmon - enable event logging
+    if (params.has('startmon')) {
+      startmon(true);
     }
 
     // ?lang= - force language
@@ -300,10 +306,10 @@ function App() {
 
     if (isMutedRef.current) {
       // Mute mode: wait 3 seconds silently
-      log(`[muted ]#${noteNo}:${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
+      log(`[muted] #${noteNo} ${authorName}: ${noteToRead.content.slice(0, 50)}...`);
       setTimeout(onEnd, 3000);
     } else {
-      log(`[reading]#${noteNo}(${readingLang}):${noteToRead.content.slice(0, 50)}${noteToRead.content.length > 50 ? '...' : ''}`);
+      logReading(noteNo, readingLang, authorName, noteToRead.content);
       speechManager.current?.speak(fullText, readingLang, onEnd, timeoutSeconds);
     }
   }, [profiles, t]);
@@ -334,8 +340,7 @@ function App() {
 
       // Update author language data
       updateAuthorLanguage(post.author.did, post.text);
-      const detectedLang = detectLanguage(post.text);
-      log(`[bluesky] lang=${detectedLang}: ${post.text.slice(0, 30)}...`);
+      logBlueskyEvent(post.createdAt, post.author.displayName || post.author.handle, post.text);
 
       // Add to notes and sort by created_at
       let newNotes = [noteWithRead, ...notesRef.current];
@@ -366,27 +371,27 @@ function App() {
         const hexPubkey = getNostrPubkey();
         if (hexPubkey) {
           // Fetch relay list
-          log('[start] fetching relay list...');
+          logNostr('fetching relay list...');
           const relays = await fetchRelayList(hexPubkey);
-          log('[start] relay list:', relays.length, 'relays');
+          logNostr('relay list:', relays.length, 'relays');
           relaysRef.current = relays;
 
           // Fetch follow list
-          log('[start] fetching follow list...');
+          logNostr('fetching follow list...');
           const followList = await fetchFollowList(hexPubkey, relays);
-          log('[start] follow list:', followList.length, 'follows');
+          logNostr('follow list:', followList.length, 'follows');
 
           if (followList.length > 0) {
             hasAnySource = true;
 
             // Fetch profiles of followees (don't await, let it run in background)
-            log('[start] fetching profiles (background)...');
+            logNostr('fetching profiles (background)...');
             fetchProfiles(followList, relays, (p) => {
               setProfiles((prev) => new Map(prev).set(p.pubkey, p));
             });
 
             // Subscribe to kind:1 notes
-            log('[start] subscribing to notes...');
+            logNostr('subscribing to notes...');
             const unsubscribe = subscribeToNotes(followList, relays, (note, shouldReplace) => {
               // Skip if already exists
               if (notesRef.current.some((n) => n.id === note.id)) {
@@ -395,8 +400,9 @@ function App() {
 
               // Update author language data for auto-detection
               updateAuthorLanguage(note.pubkey, note.content);
-              const detectedLang = detectLanguage(note.content);
-              log(`[note] lang=${detectedLang}: ${note.content.slice(0, 30)}...`);
+              const profile = profilesRef.current.get(note.pubkey);
+              const authorName = profile?.display_name || profile?.name || note.pubkey.slice(0, 8);
+              logNostrEvent(note.created_at, authorName, note.content);
 
               let newNotes: NoteWithRead[];
               if (shouldReplace) {
@@ -424,20 +430,20 @@ function App() {
       if (config.sourceBluesky && config.blueskyHandle) {
         // Login if app key is configured
         if (!bluesky.isLoggedIn() && config.blueskyAppKey) {
-          log('[start] logging in to Bluesky...');
+          logBluesky('logging in...');
           await bluesky.login(config.blueskyHandle, config.blueskyAppKey);
         }
         const useTimeline = bluesky.isLoggedIn();
-        log(`[start] Bluesky useTimeline: ${useTimeline}`);
+        logBluesky(`useTimeline: ${useTimeline}`);
 
         if (!useTimeline) {
           // Not logged in: fetch follows list first
-          log('[start] fetching Bluesky follows...');
+          logBluesky('fetching follows...');
           const follows = await bluesky.getFollows(config.blueskyHandle);
-          log('[start] Bluesky follows:', follows.length);
+          logBluesky('follows:', follows.length);
           blueskyFollowsRef.current = follows;
           if (follows.length === 0) {
-            log('[start] no Bluesky follows found');
+            logBluesky('no follows found');
           }
         }
 
@@ -445,11 +451,11 @@ function App() {
           hasAnySource = true;
 
           // Fetch initial posts
-          log('[start] fetching Bluesky posts...');
+          logBluesky('fetching posts...');
           const posts = useTimeline
             ? await bluesky.getTimeline()
             : await bluesky.getFollowsPosts(blueskyFollowsRef.current);
-          log('[start] Bluesky posts:', posts.length);
+          logBluesky('posts:', posts.length);
           addBlueskyPosts(posts, true); // Initial load: only keep one post
           if (posts.length > 0) {
             blueskyLastFetchRef.current = posts[0].createdAt;
@@ -463,14 +469,14 @@ function App() {
             if (useTimeline) {
               const hasNew = await bluesky.peekLatest(blueskyLastFetchRef.current);
               if (!hasNew) return;
-              log('[bluesky] new post detected, fetching...');
+              logBluesky('new post detected, fetching...');
             }
 
             const newPosts = useTimeline
               ? await bluesky.getTimeline(blueskyLastFetchRef.current)
               : await bluesky.getFollowsPosts(blueskyFollowsRef.current, blueskyLastFetchRef.current);
             if (newPosts.length > 0) {
-              log('[bluesky] new posts:', newPosts.length);
+              logBluesky('new posts:', newPosts.length);
               addBlueskyPosts(newPosts);
               blueskyLastFetchRef.current = newPosts[0].createdAt;
             }
@@ -479,12 +485,12 @@ function App() {
       }
 
       if (!hasAnySource) {
-        log('[start] no sources available');
+        log('[app] no sources available');
         setAppState('idle');
         return;
       }
 
-      log('[start] running!');
+      log('[app] running!');
       setAppState('running');
     } catch (error) {
       console.error('Error starting:', error);

@@ -2,7 +2,7 @@ import { createRxNostr, createRxBackwardReq, createRxForwardReq } from 'rx-nostr
 import { verifier } from 'rx-nostr-crypto';
 import type { Profile, NoteEvent } from './types';
 import { BOOTSTRAP_RELAYS, getFallbackRelays } from './constants';
-import { log } from '../utils';
+import { logNostr, formatFilters, formatRelays } from '../utils';
 
 const rxNostr = createRxNostr({ verifier });
 
@@ -342,7 +342,7 @@ export function subscribeToNotes(
   const markEoseReceived = () => {
     if (!eoseReceived) {
       eoseReceived = true;
-      log('[subscribe] EOSE timeout reached');
+      logNostr('EOSE timeout reached');
     }
   };
 
@@ -407,11 +407,11 @@ export async function publishNote(content: string, relays: string[]): Promise<bo
     };
 
     const signedEvent = await window.nostr.signEvent(event);
-    log('[publish] signed event:', signedEvent.id);
+    logNostr('publish signed event:', signedEvent.id);
 
     rxNostr.setDefaultRelays(relays);
     rxNostr.send(signedEvent);
-    log('[publish] sent to relays');
+    logNostr('publish sent to', formatRelays(relays));
 
     return true;
   } catch (error) {
@@ -438,11 +438,11 @@ export async function publishReaction(eventId: string, eventPubkey: string, rela
     };
 
     const signedEvent = await window.nostr.signEvent(event);
-    log('[reaction] signed event:', signedEvent.id);
+    logNostr('reaction signed event:', signedEvent.id);
 
     rxNostr.setDefaultRelays(relays);
     rxNostr.send(signedEvent);
-    log('[reaction] sent to relays');
+    logNostr('reaction sent to', formatRelays(relays));
 
     return true;
   } catch (error) {

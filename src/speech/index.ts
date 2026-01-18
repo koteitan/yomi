@@ -1,5 +1,5 @@
 import type { Profile } from '../nostr/types';
-import { log } from '../utils';
+import { logSpeech } from '../utils';
 import i18n from '../i18n';
 
 // Image URL pattern (must be checked before general URL pattern)
@@ -74,7 +74,7 @@ export class SpeechManager {
     utterance.volume = 0;
     this.synth.speak(utterance);
     this.isUnlocked = true;
-    log('[speech]unlocked');
+    logSpeech('unlocked');
   }
 
   speak(text: string, lang: string, onEnd?: () => void, timeoutSeconds?: number): void {
@@ -86,7 +86,7 @@ export class SpeechManager {
 
     this.onEndCallback = onEnd || null;
 
-    log('[speech]start:', text.slice(0, 50));
+    logSpeech('start:', text.slice(0, 50));
 
     const clearTimeoutIfSet = () => {
       if (this.timeoutId) {
@@ -96,7 +96,7 @@ export class SpeechManager {
     };
 
     utterance.onend = () => {
-      log('[speech]onend');
+      logSpeech('onend');
       clearTimeoutIfSet();
       if (this.onEndCallback) {
         this.onEndCallback();
@@ -104,7 +104,7 @@ export class SpeechManager {
     };
 
     utterance.onerror = (event) => {
-      log('[speech]onerror:', event.error);
+      logSpeech('onerror:', event.error);
       clearTimeoutIfSet();
       if (event.error !== 'interrupted' && event.error !== 'canceled') {
         console.error('Speech error:', event.error);
@@ -116,12 +116,12 @@ export class SpeechManager {
 
     this.isPaused = false;
     this.synth.speak(utterance);
-    log('[speech]queued, speaking:', this.synth.speaking, 'pending:', this.synth.pending);
+    logSpeech('queued, speaking:', this.synth.speaking, 'pending:', this.synth.pending);
 
     // Set timeout to limit reading length
     if (timeoutSeconds && timeoutSeconds > 0) {
       this.timeoutId = setTimeout(() => {
-        log('[speech]timeout reached, skipping');
+        logSpeech('timeout reached, skipping');
         this.skip();
       }, timeoutSeconds * 1000);
     }

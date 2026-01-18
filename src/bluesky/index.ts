@@ -1,4 +1,4 @@
-import { log } from '../utils';
+import { logBluesky } from '../utils';
 
 const PUBLIC_API = 'https://public.api.bsky.app';
 const BSKY_API = 'https://bsky.social';
@@ -34,7 +34,7 @@ try {
   const saved = localStorage.getItem(SESSION_KEY);
   if (saved) {
     session = JSON.parse(saved);
-    log('[bluesky] session restored for:', session?.handle);
+    logBluesky(' session restored for:', session?.handle);
   }
 } catch (e) {
   // Ignore errors
@@ -47,7 +47,7 @@ try {
 export async function login(handle: string, appPassword: string, force = false): Promise<boolean> {
   // Use existing session if not forced
   if (!force && session && session.handle === handle) {
-    log('[bluesky] using existing session for:', handle);
+    logBluesky(' using existing session for:', handle);
     return true;
   }
 
@@ -58,13 +58,13 @@ export async function login(handle: string, appPassword: string, force = false):
       body: JSON.stringify({ identifier: handle, password: appPassword }),
     });
     if (!res.ok) {
-      log('[bluesky] login failed:', res.status);
+      logBluesky(' login failed:', res.status);
       return false;
     }
     session = await res.json();
     // Save session to localStorage
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    log('[bluesky] logged in as:', session?.handle);
+    logBluesky(' logged in as:', session?.handle);
     return true;
   } catch (e) {
     console.error('[bluesky] login error:', e);
@@ -95,7 +95,7 @@ export async function getFollows(handle: string): Promise<BlueskyProfile[]> {
   let cursor: string | undefined;
   let pageNum = 0;
   const startTime = Date.now();
-  log('[bluesky] getFollows start');
+  logBluesky(' getFollows start');
 
   try {
     do {
@@ -110,12 +110,12 @@ export async function getFollows(handle: string): Promise<BlueskyProfile[]> {
         try {
           const errorData = await res.json();
           if (errorData.message === 'Profile not found') {
-            log('[bluesky] profile not found:', handle);
+            logBluesky(' profile not found:', handle);
           } else {
-            log('[bluesky] getFollows failed:', res.status, errorData.message || errorData.error);
+            logBluesky(' getFollows failed:', res.status, errorData.message || errorData.error);
           }
         } catch {
-          log('[bluesky] getFollows failed:', res.status);
+          logBluesky(' getFollows failed:', res.status);
         }
         break;
       }
@@ -130,10 +130,10 @@ export async function getFollows(handle: string): Promise<BlueskyProfile[]> {
         });
       }
       cursor = data.cursor;
-      log(`[bluesky] getFollows page ${pageNum}: ${follows.length} follows, ${Date.now() - startTime}ms`);
+      logBluesky(` getFollows page ${pageNum}: ${follows.length} follows, ${Date.now() - startTime}ms`);
     } while (cursor);
 
-    log(`[bluesky] getFollows done: ${follows.length} follows in ${Date.now() - startTime}ms`);
+    logBluesky(` getFollows done: ${follows.length} follows in ${Date.now() - startTime}ms`);
     return follows;
   } catch (e) {
     console.error('[bluesky] getFollows error:', e);
@@ -153,18 +153,18 @@ export async function getProfile(handle: string): Promise<BlueskyProfile | null>
     const url = new URL(`${PUBLIC_API}/xrpc/app.bsky.actor.getProfile`);
     url.searchParams.set('actor', handle.trim());
 
-    log('[bluesky] getProfile:', handle);
+    logBluesky(' getProfile:', handle);
     const res = await fetch(url.toString());
     if (!res.ok) {
       try {
         const errorData = await res.json();
         if (errorData.message === 'Profile not found') {
-          log('[bluesky] profile not found:', handle);
+          logBluesky(' profile not found:', handle);
         } else {
-          log('[bluesky] getProfile failed:', res.status, errorData.message || errorData.error);
+          logBluesky(' getProfile failed:', res.status, errorData.message || errorData.error);
         }
       } catch {
-        log('[bluesky] getProfile failed:', res.status);
+        logBluesky(' getProfile failed:', res.status);
       }
       return null;
     }
@@ -191,7 +191,7 @@ export async function getFollowsPosts(
 ): Promise<BlueskyPost[]> {
   const posts: BlueskyPost[] = [];
   const startTime = Date.now();
-  log(`[bluesky] getFollowsPosts start: ${follows.length} users`);
+  logBluesky(` getFollowsPosts start: ${follows.length} users`);
 
   try {
     // Get 1 latest post from each followed account
@@ -200,7 +200,7 @@ export async function getFollowsPosts(
     for (let i = 0; i < dids.length; i++) {
       const did = dids[i];
       if (i % 10 === 0) {
-        log(`[bluesky] getFollowsPosts progress: ${i}/${dids.length}, ${Date.now() - startTime}ms`);
+        logBluesky(` getFollowsPosts progress: ${i}/${dids.length}, ${Date.now() - startTime}ms`);
       }
       const url = new URL(`${PUBLIC_API}/xrpc/app.bsky.feed.getAuthorFeed`);
       url.searchParams.set('actor', did);
@@ -239,7 +239,7 @@ export async function getFollowsPosts(
     // Sort by createdAt descending
     posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    log(`[bluesky] getFollowsPosts done: ${posts.length} posts in ${Date.now() - startTime}ms`);
+    logBluesky(` getFollowsPosts done: ${posts.length} posts in ${Date.now() - startTime}ms`);
     return posts;
   } catch (e) {
     console.error('[bluesky] getFollowsPosts error:', e);
@@ -252,13 +252,13 @@ export async function getFollowsPosts(
  */
 export async function getTimeline(since?: string): Promise<BlueskyPost[]> {
   if (!session) {
-    log('[bluesky] not logged in, cannot get timeline');
+    logBluesky(' not logged in, cannot get timeline');
     return [];
   }
 
   const posts: BlueskyPost[] = [];
   const startTime = Date.now();
-  log('[bluesky] getTimeline start');
+  logBluesky(' getTimeline start');
 
   try {
     const url = new URL(`${BSKY_API}/xrpc/app.bsky.feed.getTimeline`);
@@ -271,11 +271,11 @@ export async function getTimeline(since?: string): Promise<BlueskyPost[]> {
     });
 
     if (!res.ok) {
-      log(`[bluesky] getTimeline failed: ${res.status}, ${Date.now() - startTime}ms`);
+      logBluesky(` getTimeline failed: ${res.status}, ${Date.now() - startTime}ms`);
       return [];
     }
 
-    log(`[bluesky] getTimeline fetch done: ${Date.now() - startTime}ms`);
+    logBluesky(` getTimeline fetch done: ${Date.now() - startTime}ms`);
     const data = await res.json();
     for (const item of data.feed || []) {
       const post = item.post;
@@ -301,7 +301,7 @@ export async function getTimeline(since?: string): Promise<BlueskyPost[]> {
       });
     }
 
-    log(`[bluesky] getTimeline done: ${posts.length} posts in ${Date.now() - startTime}ms`);
+    logBluesky(` getTimeline done: ${posts.length} posts in ${Date.now() - startTime}ms`);
     return posts;
   } catch (e) {
     console.error('[bluesky] getTimeline error:', e);
@@ -318,6 +318,8 @@ export async function peekLatest(since?: string): Promise<string | null> {
     return null;
   }
 
+  const startTime = Date.now();
+
   try {
     const url = new URL(`${BSKY_API}/xrpc/app.bsky.feed.getTimeline`);
     url.searchParams.set('limit', '1');
@@ -329,23 +331,28 @@ export async function peekLatest(since?: string): Promise<string | null> {
     });
 
     if (!res.ok) {
+      logBluesky(` peekLatest failed: ${res.status}, ${Date.now() - startTime}ms`);
       return null;
     }
 
     const data = await res.json();
     const item = data.feed?.[0];
     if (!item?.post?.record?.createdAt) {
+      logBluesky(` peekLatest: no posts, ${Date.now() - startTime}ms`);
       return null;
     }
 
     const createdAt = item.post.record.createdAt;
     // Return createdAt only if newer than since
     if (since && createdAt <= since) {
+      logBluesky(` peekLatest: no new posts, ${Date.now() - startTime}ms`);
       return null;
     }
 
+    logBluesky(` peekLatest: new post found, ${Date.now() - startTime}ms`);
     return createdAt;
   } catch (e) {
+    logBluesky(` peekLatest error: ${e}`);
     return null;
   }
 }
@@ -355,7 +362,7 @@ export async function peekLatest(since?: string): Promise<string | null> {
  */
 export async function createPost(text: string): Promise<boolean> {
   if (!session) {
-    log('[bluesky] not logged in');
+    logBluesky(' not logged in');
     return false;
   }
 
@@ -377,11 +384,11 @@ export async function createPost(text: string): Promise<boolean> {
     });
 
     if (!res.ok) {
-      log('[bluesky] createPost failed:', res.status);
+      logBluesky(' createPost failed:', res.status);
       return false;
     }
 
-    log('[bluesky] post created');
+    logBluesky(' post created');
     return true;
   } catch (e) {
     console.error('[bluesky] createPost error:', e);
@@ -394,7 +401,7 @@ export async function createPost(text: string): Promise<boolean> {
  */
 export async function likePost(uri: string, cid: string): Promise<boolean> {
   if (!session) {
-    log('[bluesky] not logged in');
+    logBluesky(' not logged in');
     return false;
   }
 
@@ -416,11 +423,11 @@ export async function likePost(uri: string, cid: string): Promise<boolean> {
     });
 
     if (!res.ok) {
-      log('[bluesky] likePost failed:', res.status);
+      logBluesky(' likePost failed:', res.status);
       return false;
     }
 
-    log('[bluesky] post liked');
+    logBluesky(' post liked');
     return true;
   } catch (e) {
     console.error('[bluesky] likePost error:', e);
