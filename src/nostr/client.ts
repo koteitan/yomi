@@ -2,7 +2,7 @@ import { createRxNostr, createRxBackwardReq, createRxForwardReq } from 'rx-nostr
 import { verifier } from 'rx-nostr-crypto';
 import type { Profile, NoteEvent } from './types';
 import { BOOTSTRAP_RELAYS, getFallbackRelays } from './constants';
-import { logNostr, formatFilters, formatRelays } from '../utils';
+import { logNostr, formatRelays } from '../utils';
 
 const rxNostr = createRxNostr({ verifier });
 

@@ -1,7 +1,5 @@
 let eventLogEnabled = false;
 
-type LogCategory = 'bluesky' | 'nostr' | 'nostr-event' | 'bluesky-event' | 'reading' | 'speech' | 'app';
-
 // Generic log function (kept for backward compatibility)
 export function log(...args: unknown[]): void {
   if (eventLogEnabled) {

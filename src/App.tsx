@@ -14,7 +14,7 @@ import {
 import type { Profile } from './nostr';
 import { SpeechManager, processTextForSpeech } from './speech';
 import { VERSION, GITHUB_URL } from './version';
-import { log, startmon, logNostr, logBluesky, logNostrEvent, logBlueskyEvent, logReading, logSpeech } from './utils';
+import { log, startmon, logNostr, logBluesky, logNostrEvent, logBlueskyEvent, logReading } from './utils';
 import {
   type Config,
   loadConfig,
