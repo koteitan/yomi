@@ -2,6 +2,7 @@ export type ReadingLanguageMode = 'browser' | 'autoAuthor' | 'autoNote' | 'speci
 export type DisplayLanguageMode = 'browser' | 'specific';
 export type ReadingLimitMode = 'none' | 'limit';
 export type NostrAuthMode = 'nip07' | 'pubkey';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 export interface Config {
   readingLanguageMode: ReadingLanguageMode;
@@ -18,6 +19,7 @@ export interface Config {
   sourceBluesky: boolean;
   blueskyHandle: string;
   blueskyAppKey: string;
+  theme: ThemeMode;
 }
 
 const CONFIG_KEY = 'yomi-config';
@@ -37,6 +39,7 @@ export const defaultConfig: Config = {
   sourceBluesky: false,
   blueskyHandle: '',
   blueskyAppKey: '',
+  theme: 'light',
 };
 
 export function loadConfig(): Config {

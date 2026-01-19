@@ -148,6 +148,30 @@ function App() {
     profilesRef.current = profiles;
   }, [profiles]);
 
+  // Apply theme
+  useEffect(() => {
+    const applyTheme = (theme: 'light' | 'dark') => {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+
+    if (config.theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      applyTheme(mediaQuery.matches ? 'dark' : 'light');
+
+      const handler = (e: MediaQueryListEvent) => {
+        applyTheme(e.matches ? 'dark' : 'light');
+      };
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    } else {
+      applyTheme(config.theme);
+    }
+  }, [config.theme]);
+
   // Check for query parameters on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -927,7 +951,10 @@ function App() {
 
       <div className="config-row">
         <button className="btn-config" onClick={() => setShowConfig(true)}>
-          <img src={`${import.meta.env.BASE_URL}gear-icon.png`} alt="Settings" className="icon-config" />
+          <svg className="icon-config" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 0 C1.65 0 3.3 0 5 0 C5 1.65 5 3.3 5 5 C5.845625 5.103125 6.69125 5.20625 7.5625 5.3125 C11 6 11 6 14.625 7.6875 C17.82654161 9.34606398 17.82654161 9.34606398 20.4375 8.1875 C21.2109375 7.5996875 21.2109375 7.5996875 22 7 C22.99 8.32 23.98 9.64 25 11 C24.63132813 11.5775 24.26265625 12.155 23.8828125 12.75 C22.74179118 14.94632361 22.74179118 14.94632361 23.6796875 17 C24.27136719 17.99 24.27136719 17.99 24.875 19 C26.76082847 22.19716615 27 23.0334671 27 27 C28.65 27 30.3 27 32 27 C32 28.65 32 30.3 32 32 C30.35 32 28.7 32 27 32 C26.5196682 33.58298026 26.04078388 35.16639978 25.5625 36.75 C25.29566406 37.63171875 25.02882812 38.5134375 24.75390625 39.421875 C24.50511719 40.27265625 24.25632813 41.1234375 24 42 C23.76152344 42.70640625 23.52304687 43.4128125 23.27734375 44.140625 C22.73754596 46.33364833 22.73754596 46.33364833 25 49 C23.625 50.5 23.625 50.5 22 52 C21.34 52 20.68 52 20 52 C19.67 51.34 19.34 50.68 19 50 C15.88200997 50.75035741 12.81929597 51.63363411 9.75 52.5625 C8.85796875 52.83191406 7.9659375 53.10132813 7.046875 53.37890625 C6.37140625 53.58386719 5.6959375 53.78882813 5 54 C5 55.65 5 57.3 5 59 C3.35 59 1.7 59 0 59 C-0.495 56.525 -0.495 56.525 -1 54 C-2.41601714 53.51891725 -3.83284437 53.04021859 -5.25 52.5625 C-6.03890625 52.29566406 -6.8278125 52.02882812 -7.640625 51.75390625 C-11.95409589 50.1403235 -11.95409589 50.1403235 -16.25 50.9375 C-16.8275 51.288125 -17.405 51.63875 -18 52 C-18.66 51.34 -19.32 50.68 -20 50 C-19.814375 48.948125 -19.62875 47.89625 -19.4375 46.8125 C-18.91465198 42.25625299 -20.07295356 40.08533845 -22 36 C-22 34.68 -22 33.36 -22 32 C-23.65 32 -25.3 32 -27 32 C-27 30.35 -27 28.7 -27 27 C-25.35 27 -23.7 27 -22 27 C-21.8453125 25.14375 -21.8453125 25.14375 -21.6875 23.25 C-21.2576881 19.672448 -20.42223091 17.73817407 -18 15 C-18 14.34 -18 13.68 -18 13 C-18.66 12.67 -19.32 12.34 -20 12 C-19.67 10.68 -19.34 9.36 -19 8 C-16.33333333 8 -13.66666667 8 -11 8 C-9.44204002 7.55334936 -7.89933008 7.05059414 -6.375 6.5 C-2.19444444 5 -2.19444444 5 0 5 C0 3.35 0 1.7 0 0 Z M-13.5 17.375 C-17.373537 23.04203769 -17.00999204 29.43505177 -16 36 C-14.22132304 41.07078957 -11.06461941 44.95701345 -6.15625 47.37890625 C-0.3393508 49.05442613 5.73300152 48.74192677 11.4375 46.875 C15.97562098 43.55442367 19.61948805 39.52204781 21 34 C21.82644237 27.55598315 21.24219257 23.0197254 17.42578125 17.6875 C13.10639806 12.57524373 8.79278405 10.27470007 2.1875 9.625 C-4.26774154 9.84382175 -9.18295913 12.65260318 -13.5 17.375 Z" transform="translate(30,3)"/>
+            <path d="M0 0 C3.125 0.375 3.125 0.375 6 1 C6.6875 3.3125 6.6875 3.3125 7 6 C5.875 7.875 5.875 7.875 4 9 C-0.42105263 8.57894737 -0.42105263 8.57894737 -2 7 C-2.1875 4.5625 -2.1875 4.5625 -2 2 C-1.34 1.34 -0.68 0.68 0 0 Z" transform="translate(30,28)"/>
+          </svg>
         </button>
       </div>
 
@@ -1091,6 +1118,38 @@ function App() {
               </div>
 
               <div className="config-section">
+                <div className="config-label">{t('configReadingLimit')}</div>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="readingLimit"
+                    checked={config.readingLimitMode === 'none'}
+                    onChange={() => updateConfig({ readingLimitMode: 'none' })}
+                  />
+                  {t('configNoLimit')}
+                </label>
+                <label className="config-radio">
+                  <input
+                    type="radio"
+                    name="readingLimit"
+                    checked={config.readingLimitMode === 'limit'}
+                    onChange={() => updateConfig({ readingLimitMode: 'limit' })}
+                  />
+                  {t('configLimitTo')}
+                  <input
+                    type="number"
+                    className="config-input-number"
+                    value={config.readingLimitSeconds}
+                    onChange={(e) => updateConfig({ readingLimitSeconds: parseInt(e.target.value) || 30 })}
+                    disabled={config.readingLimitMode !== 'limit'}
+                    min={1}
+                    max={300}
+                  />
+                  {t('configSeconds')}
+                </label>
+              </div>
+
+              <div className="config-section">
                 <div className="config-label">{t('configDisplayLanguage')}</div>
                 <label className="config-radio">
                   <input
@@ -1125,34 +1184,33 @@ function App() {
               </div>
 
               <div className="config-section">
-                <div className="config-label">{t('configReadingLimit')}</div>
+                <div className="config-label">{t('configTheme')}</div>
                 <label className="config-radio">
                   <input
                     type="radio"
-                    name="readingLimit"
-                    checked={config.readingLimitMode === 'none'}
-                    onChange={() => updateConfig({ readingLimitMode: 'none' })}
+                    name="theme"
+                    checked={config.theme === 'light'}
+                    onChange={() => updateConfig({ theme: 'light' })}
                   />
-                  {t('configNoLimit')}
+                  {t('themeLight')}
                 </label>
                 <label className="config-radio">
                   <input
                     type="radio"
-                    name="readingLimit"
-                    checked={config.readingLimitMode === 'limit'}
-                    onChange={() => updateConfig({ readingLimitMode: 'limit' })}
+                    name="theme"
+                    checked={config.theme === 'dark'}
+                    onChange={() => updateConfig({ theme: 'dark' })}
                   />
-                  {t('configLimitTo')}
+                  {t('themeDark')}
+                </label>
+                <label className="config-radio">
                   <input
-                    type="number"
-                    className="config-input-number"
-                    value={config.readingLimitSeconds}
-                    onChange={(e) => updateConfig({ readingLimitSeconds: parseInt(e.target.value) || 30 })}
-                    disabled={config.readingLimitMode !== 'limit'}
-                    min={1}
-                    max={300}
+                    type="radio"
+                    name="theme"
+                    checked={config.theme === 'system'}
+                    onChange={() => updateConfig({ theme: 'system' })}
                   />
-                  {t('configSeconds')}
+                  {t('themeSystem')}
                 </label>
               </div>
             </div>
