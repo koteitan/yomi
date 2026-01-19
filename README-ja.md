@@ -1,6 +1,6 @@
 [English](README.md) | Japanese
 
-# yomi - Nostr TTS Reader
+# yomi - Nostr/Bluesky TTS Reader
 Nostrの投稿を音声で読み上げるクライアントです。
 
 ## ユーザー向け
