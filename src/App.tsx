@@ -956,10 +956,14 @@ function App() {
                       }
                     }}
                     onMouseUp={() => {
-                      speechManager.current?.speak(t('volumePreview'), i18n.language);
+                      if (!speechManager.current?.speaking) {
+                        speechManager.current?.speak(t('volumePreview'), i18n.language);
+                      }
                     }}
                     onTouchEnd={() => {
-                      speechManager.current?.speak(t('volumePreview'), i18n.language);
+                      if (!speechManager.current?.speaking) {
+                        speechManager.current?.speak(t('volumePreview'), i18n.language);
+                      }
                     }}
                   />
                   <span className="config-volume-value">{Math.round(config.volume * 100)}%</span>
