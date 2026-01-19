@@ -3,6 +3,7 @@ import { verifier } from 'rx-nostr-crypto';
 import type { Profile, NoteEvent } from './types';
 import { BOOTSTRAP_RELAYS, getFallbackRelays } from './constants';
 import { logNostr, formatRelays } from '../utils';
+import { getMisskeyStatus } from '../misskey';
 
 const rxNostr = createRxNostr({ verifier });
 
@@ -46,7 +47,7 @@ function formatFilter(filter: object): string {
 }
 
 export function dumpsub() {
-  console.log('=== Subscription History ===');
+  console.log('=== Nostr Subscription History ===');
   for (const sub of subHistory) {
     const relaysStr = sub.relays.length > 3
       ? `[${sub.relays.slice(0, 3).join(', ')}, ...(${sub.relays.length})]`
@@ -55,6 +56,10 @@ export function dumpsub() {
     console.log(`#${sub.index}:${sub.type}:${sub.status}:${relaysStr}:${filtersStr}`);
   }
   console.log(`=== Total: ${subHistory.length} subscriptions ===`);
+
+  console.log('=== Misskey.io Status ===');
+  const mk = getMisskeyStatus();
+  console.log(`loggedIn:${mk.loggedIn}, ws:${mk.wsState}, channel:${mk.channelId || 'none'}, reconnects:${mk.reconnectAttempts}`);
 }
 
 // Expose to window for console debugging

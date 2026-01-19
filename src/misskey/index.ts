@@ -473,3 +473,37 @@ export function disconnectStream(): void {
 export function isStreamConnected(): boolean {
   return ws !== null && ws.readyState === WebSocket.OPEN;
 }
+
+/**
+ * Get Misskey connection status for debugging
+ */
+export function getMisskeyStatus(): {
+  loggedIn: boolean;
+  wsState: string;
+  channelId: string | null;
+  reconnectAttempts: number;
+} {
+  let wsState = 'disconnected';
+  if (ws) {
+    switch (ws.readyState) {
+      case WebSocket.CONNECTING:
+        wsState = 'connecting';
+        break;
+      case WebSocket.OPEN:
+        wsState = 'open';
+        break;
+      case WebSocket.CLOSING:
+        wsState = 'closing';
+        break;
+      case WebSocket.CLOSED:
+        wsState = 'closed';
+        break;
+    }
+  }
+  return {
+    loggedIn: accessToken !== null,
+    wsState,
+    channelId,
+    reconnectAttempts,
+  };
+}
