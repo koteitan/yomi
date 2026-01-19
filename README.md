@@ -94,11 +94,12 @@ The "Auto detect by author" and "Auto detect by note" features use [franc-min](h
 
 ### Tested Environments
 
-| OS | Browser | Foreground Playback | Background Playback | Bluetooth Playback | Bluetooth Speech Recognition |
-| --- | --- | :---: | :---: | :---: | :---: |
-| Windows 11 25H2 | Chrome 143.0.7499.194 | ✔ | ✔ | ✔ | ✔ |
-| iOS 26.2 | Safari 26.6 | ✔ | | | |
-| Android 13 | Chrome 143.0.7499.194 | ✔ | | ✔ | ✔ |
+| OS              | Browser                 | Foreground Playback  | Background Playback  | Bluetooth Playback | Speech Recognition (on device)|Speech Recognition (Bluetooth)|
+| --------------- | ----------------------- | -------------------- | -------------------- | ------------------ | ----------------------------- | ---------------------------- |
+| Windows 11 25H2 | Chrome 143.0.7499.194   | ✔                    | ✔                    | ✔                  | ✔                             | ✔                            |
+| iOS 26.2        | Safari 26.6             | ✔                    |                      | ✔                  | ✔                             |                              |
+| Android 13      | Chrome 143.0.7499.194   | ✔                    |                      | ✔                  | ✔                             | ✔                            |
+| Android 13      | Firefox Nightly 149.0a1 | ✔                    | ✔                    | ✔                  |                               |                              |
 
 ## For Developers
 ### Requirements
