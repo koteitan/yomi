@@ -1,2 +1,2 @@
-export const VERSION = '1.3.6';
+export const VERSION = '1.3.7';
 export const GITHUB_URL = 'https://github.com/koteitan/yomi';

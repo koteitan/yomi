@@ -127,6 +127,9 @@ function App() {
   const blueskyPollingRef = useRef<number | null>(null);
   const blueskyLastFetchRef = useRef<string | undefined>(undefined);
   const profilesRef = useRef<Map<string, Profile>>(new Map());
+  // Track user's posted content to skip duplicate multi-posts
+  // Map key: content string, value: 'pending' (not yet read) or 'read' (first one read)
+  const myPostedContentRef = useRef<Map<string, 'pending' | 'read'>>(new Map());
 
   // Initialize speech manager
   useEffect(() => {
@@ -344,6 +347,44 @@ function App() {
     setNotes(notesRef.current);
     setCurrentNoteId(noteToRead.id);
 
+    // Check for duplicate multi-post from the user
+    // Only skip if: author is current user AND content was posted by app AND already read once
+    const myPostedContent = myPostedContentRef.current;
+    const content = noteToRead.content;
+    const postStatus = myPostedContent.get(content);
+
+    if (postStatus) {
+      // This content was posted by the user via the app
+      // Check if author is the current user (compare by platform)
+      let isMyPost = false;
+      const myNostrPubkey = getNostrPubkey();
+
+      if (noteToRead.source === 'nostr' && myNostrPubkey) {
+        isMyPost = noteToRead.pubkey === myNostrPubkey;
+      } else if (noteToRead.source === 'bluesky' && blueskyProfile) {
+        isMyPost = noteToRead.pubkey === blueskyProfile.did;
+      } else if (noteToRead.source === 'misskey' && misskeyProfile) {
+        isMyPost = noteToRead.pubkey === misskeyProfile.id;
+      }
+
+      if (isMyPost) {
+        if (postStatus === 'read') {
+          // Already read once, skip this duplicate
+          log('[process] skipping duplicate multi-post');
+          isProcessingRef.current = false;
+          setCurrentNoteId(null);
+          if (appStateRef.current === 'running') {
+            processNextNote();
+          }
+          return;
+        } else {
+          // First read of this posted content, mark as read
+          log('[process] first read of multi-post');
+          myPostedContent.set(content, 'read');
+        }
+      }
+    }
+
     let authorName: string;
     if (noteToRead.source === 'bluesky') {
       authorName = noteToRead.authorName || t('blueskyAddress');
@@ -422,7 +463,7 @@ function App() {
       logReading(noteNo, readingLang, authorName, noteToRead.content);
       speechManager.current?.speak(fullText, readingLang, onEnd, timeoutSeconds);
     }
-  }, [profiles, t]);
+  }, [profiles, t, getNostrPubkey, blueskyProfile, misskeyProfile]);
 
   const addBlueskyPosts = useCallback((posts: bluesky.BlueskyPost[], isInitial: boolean = false) => {
     if (posts.length === 0) return;
@@ -789,6 +830,18 @@ function App() {
     const canPostMisskey = config.sourceMisskey && postToMisskey && config.misskeyAccessToken;
 
     if (!canPostNostr && !canPostBluesky && !canPostMisskey) return;
+
+    // Track content BEFORE posting to detect duplicates when events return
+    const platformCount = [canPostNostr, canPostBluesky, canPostMisskey].filter(Boolean).length;
+    if (platformCount >= 2) {
+      myPostedContentRef.current.set(postContent, 'pending');
+      log('[post] tracking multi-post content for duplicate detection');
+      // Clean up after 60 seconds
+      const contentToClean = postContent;
+      setTimeout(() => {
+        myPostedContentRef.current.delete(contentToClean);
+      }, 60000);
+    }
 
     setIsPosting(true);
 
