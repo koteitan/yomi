@@ -28,8 +28,48 @@ let noteCallback: ((note: MisskeyNote) => void) | null = null;
 let reconnectTimeout: number | null = null;
 let channelId: string | null = null;
 
+// Watchdog and reconnection state
+let watchdogTimeout: number | null = null;
+let reconnectAttempts = 0;
+const WATCHDOG_INTERVAL = 60000; // 1 minute
+const MAX_RECONNECT_DELAY = 60000; // 60 seconds max
+
 function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
+}
+
+/**
+ * Calculate reconnect delay with exponential backoff
+ * 1s, 2s, 4s, 8s, 16s, 32s, 60s (max)
+ */
+function getReconnectDelay(): number {
+  const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY);
+  return delay;
+}
+
+/**
+ * Reset watchdog timer - call on every message received
+ */
+function resetWatchdog(): void {
+  if (watchdogTimeout) {
+    clearTimeout(watchdogTimeout);
+  }
+  watchdogTimeout = window.setTimeout(() => {
+    logMisskey(' watchdog: no message for 60s, reconnecting...');
+    if (ws && noteCallback) {
+      ws.close();
+    }
+  }, WATCHDOG_INTERVAL);
+}
+
+/**
+ * Clear watchdog timer
+ */
+function clearWatchdog(): void {
+  if (watchdogTimeout) {
+    clearTimeout(watchdogTimeout);
+    watchdogTimeout = null;
+  }
 }
 
 // Try to restore token from localStorage on load
@@ -318,6 +358,12 @@ export function connectStream(onNote: (note: MisskeyNote) => void): void {
   ws.onopen = () => {
     logMisskey(' connectStream: connected');
 
+    // Reset reconnect attempts on successful connection
+    reconnectAttempts = 0;
+
+    // Start watchdog
+    resetWatchdog();
+
     // Subscribe to home timeline
     if (ws && ws.readyState === WebSocket.OPEN) {
       const subscribeMsg = {
@@ -333,6 +379,9 @@ export function connectStream(onNote: (note: MisskeyNote) => void): void {
   };
 
   ws.onmessage = (event) => {
+    // Reset watchdog on any message
+    resetWatchdog();
+
     try {
       const data = JSON.parse(event.data);
 
@@ -375,14 +424,19 @@ export function connectStream(onNote: (note: MisskeyNote) => void): void {
     logMisskey(' connectStream: closed, code:', event.code);
     ws = null;
 
-    // Reconnect after 5 seconds if we still have a callback
+    // Clear watchdog
+    clearWatchdog();
+
+    // Reconnect with exponential backoff if we still have a callback
     if (noteCallback) {
-      logMisskey(' connectStream: will reconnect in 5s...');
+      const delay = getReconnectDelay();
+      reconnectAttempts++;
+      logMisskey(` connectStream: will reconnect in ${delay / 1000}s (attempt ${reconnectAttempts})...`);
       reconnectTimeout = window.setTimeout(() => {
         if (noteCallback) {
           connectStream(noteCallback);
         }
-      }, 5000);
+      }, delay);
     }
   };
 }
@@ -392,6 +446,12 @@ export function connectStream(onNote: (note: MisskeyNote) => void): void {
  */
 export function disconnectStream(): void {
   noteCallback = null;
+
+  // Clear watchdog
+  clearWatchdog();
+
+  // Reset reconnect attempts
+  reconnectAttempts = 0;
 
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);
