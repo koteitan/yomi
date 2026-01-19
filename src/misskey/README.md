@@ -15,14 +15,14 @@ MisskeyはクライアントやBot、Webサービス開発用のREST APIとWebSo
 
 ### 比較表
 
-| クライアント | プラットフォーム | 読み上げ(TTS) | ログイン方法 | Streaming API | ポーリング/再接続 | Timeline limit |
-|-------------|-----------------|--------------|-------------|---------------|------------------|----------------|
-| **Misskey公式** | Web (Vue) | なし | [MiAuth](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/pages/miauth.vue#L53), [OAuth](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/pages/oauth.vue#L29-L66), [Passkey](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/components/MkSignin.vue#L119) | [WebSocket](https://github.com/misskey-dev/misskey/blob/develop/packages/misskey-js/src/streaming.ts#L86) | [60秒HB](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/stream.ts#L12), [10-22.5秒TL](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/components/MkStreamingNotesTimeline.vue#L244-L249) | - |
-| **yomi** | Web (React) | [あり](https://github.com/koteitan/yomi/blob/main/src/App.tsx) | [トークン](https://github.com/koteitan/yomi/blob/main/src/misskey/index.ts#L49-L71) | [WebSocket](https://github.com/koteitan/yomi/blob/main/src/misskey/index.ts#L301-L388) | [5秒再接続](https://github.com/koteitan/yomi/blob/main/src/misskey/index.ts#L381-L385) | [50](https://github.com/koteitan/yomi/blob/main/src/misskey/index.ts#L137) |
-| **Miria** | iOS/Android (Flutter) | なし | [MiAuth](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/view/login_page/mi_auth_login.dart#L31-L49), [パスワード](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/account_repository.dart#L354-L378), [トークン](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/account_repository.dart#L380-L407) | [WebSocket](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/socket_timeline_repository.dart#L19-L20) | [10秒](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/time_line_repository.dart#L106) | [30](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/home_time_line_repository.dart#L17-L26) |
-| **Aria** | iOS/Android (Flutter) | なし | [MiAuth](https://github.com/poppingmoon/aria/blob/main/lib/repository/miauth_repository.dart#L53-L65) | [WebSocket](https://github.com/poppingmoon/aria/blob/main/lib/provider/streaming/web_socket_channel_provider.dart#L23-L46) | [指数バックオフ](https://github.com/poppingmoon/aria/blob/main/lib/provider/streaming/web_socket_channel_provider.dart#L14-L20), [10分キャッシュ](https://github.com/poppingmoon/aria/blob/main/lib/provider/emojis_notifier_provider.dart#L24) | [30](https://github.com/poppingmoon/aria/blob/main/lib/provider/api/timeline_notes_notifier_provider.dart#L22-L26) |
-| **Kimis** | iOS/macOS (Swift) | なし | [MiAuth](https://github.com/Lakr233/Kimis/blob/main/Kimis/Interface/Controller/LoginController/LoginController.swift#L314-L322) | なし | [2-5秒通知](https://github.com/Lakr233/Kimis/blob/main/Foundation/Source/Sources/Source/DataSource/Notification/NotificationSource%2BFetcher.swift#L23-L26), [5分ステータス](https://github.com/Lakr233/Kimis/blob/main/Kimis/Backend/Account/Account.swift#L32) | - |
-| **Mistdon** | デスクトップ (Electron) | なし | [OAuth](https://github.com/tizerm/Mistdon/blob/master/src/js/mist_auth.js#L190), [トークン](https://github.com/tizerm/Mistdon/blob/master/src/js/mist_auth.js#L215-L216) | [WebSocket](https://github.com/tizerm/Mistdon/blob/master/src/js/module/class_account.js#L843-L883) | [1-999分設定可能](https://github.com/tizerm/Mistdon/blob/master/src/js/module/class_timeline.js#L209) | [30](https://github.com/tizerm/Mistdon/blob/master/src/js/module/class_timeline.js#L58) |
+| クライアント | プラットフォーム | 読み上げ(TTS) | ログイン方法 | デフォルト | Streaming API | ハートビート | 再接続バックオフ | ポーリング | Timeline limit |
+|-------------|-----------------|--------------|-------------|-----------|---------------|-------------|-----------------|-----------|----------------|
+| **Misskey公式** | Web (Vue) | なし | [MiAuth](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/pages/miauth.vue#L53), [OAuth](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/pages/oauth.vue#L29-L66), [Passkey](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/components/MkSignin.vue#L119) | Streaming (切替可) | [WebSocket](https://github.com/misskey-dev/misskey/blob/develop/packages/misskey-js/src/streaming.ts#L86) | [60秒](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/stream.ts#L12) | [指数バックオフ](https://github.com/misskey-dev/misskey/blob/develop/packages/misskey-js/src/streaming.ts#L86) | [10-22.5秒](https://github.com/misskey-dev/misskey/blob/develop/packages/frontend/src/components/MkStreamingNotesTimeline.vue#L244-L249) | - |
+| **yomi** | Web (React) | [あり](https://github.com/koteitan/yomi/blob/main/src/App.tsx) | [トークン](https://github.com/koteitan/yomi/blob/main/src/misskey/index.ts#L49-L71) | Streaming のみ | [WebSocket](https://github.com/koteitan/yomi/blob/main/src/misskey/index.ts#L301-L388) | なし | [5秒固定](https://github.com/koteitan/yomi/blob/main/src/misskey/index.ts#L381-L385) | なし | [50](https://github.com/koteitan/yomi/blob/main/src/misskey/index.ts#L137) |
+| **Miria** | iOS/Android (Flutter) | なし | [MiAuth](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/view/login_page/mi_auth_login.dart#L31-L49), [パスワード](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/account_repository.dart#L354-L378), [トークン](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/account_repository.dart#L380-L407) | Streaming のみ | [WebSocket](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/socket_timeline_repository.dart#L19-L20) | なし | [自動再接続](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/socket_timeline_repository.dart#L146-L177) | なし | [30](https://github.com/shiosyakeyakini-info/miria/blob/master/lib/repository/home_time_line_repository.dart#L17-L26) |
+| **Aria** | iOS/Android (Flutter) | なし | [MiAuth](https://github.com/poppingmoon/aria/blob/main/lib/repository/miauth_repository.dart#L53-L65) | Streaming のみ | [WebSocket](https://github.com/poppingmoon/aria/blob/main/lib/provider/streaming/web_socket_channel_provider.dart#L23-L46) | [1分](https://github.com/poppingmoon/aria/blob/main/lib/provider/streaming/web_socket_channel_provider.dart#L37) | [指数バックオフ](https://github.com/poppingmoon/aria/blob/main/lib/provider/streaming/web_socket_channel_provider.dart#L14-L20) | なし | [30](https://github.com/poppingmoon/aria/blob/main/lib/provider/api/timeline_notes_notifier_provider.dart#L22-L26) |
+| **Kimis** | iOS/macOS (Swift) | なし | [MiAuth](https://github.com/Lakr233/Kimis/blob/main/Kimis/Interface/Controller/LoginController/LoginController.swift#L314-L322) | Polling のみ | なし | - | - | [2-5秒通知](https://github.com/Lakr233/Kimis/blob/main/Foundation/Source/Sources/Source/DataSource/Notification/NotificationSource%2BFetcher.swift#L23-L26), [5分ステータス](https://github.com/Lakr233/Kimis/blob/main/Kimis/Backend/Account/Account.swift#L32) | - |
+| **Mistdon** | デスクトップ (Electron) | なし | [OAuth](https://github.com/tizerm/Mistdon/blob/master/src/js/mist_auth.js#L190), [トークン](https://github.com/tizerm/Mistdon/blob/master/src/js/mist_auth.js#L215-L216) | Streaming (切替可) | [WebSocket](https://github.com/tizerm/Mistdon/blob/master/src/js/module/class_account.js#L843-L883) | なし | [自動再接続](https://github.com/tizerm/Mistdon/blob/master/src/js/module/class_account.js#L899-L909) | [1-999分設定可能](https://github.com/tizerm/Mistdon/blob/master/src/js/module/class_timeline.js#L209) | [30](https://github.com/tizerm/Mistdon/blob/master/src/js/module/class_timeline.js#L58) |
 
 ### 詳細分析
 
@@ -121,12 +121,21 @@ MisskeyはクライアントやBot、Webサービス開発用のREST APIとWebSo
 1. **読み上げ機能**: 公式含む全5クライアントで**未実装** → yomiの独自機能
 2. **ログイン方法**: MiAuthが主流、公式はPasskey/OAuthもサポート
 3. **Streaming API**: 5/6のクライアントがWebSocket使用 (Kimisのみポーリング)
+   - **デフォルト設定**:
+     - Streaming のみ: yomi, Miria, Aria
+     - Streaming (切替可): 公式, Mistdon
+     - Polling のみ: Kimis
 4. **Timeline取得**: 他クライアントは `limit: 30` が標準、yomiは `limit: 50`
-5. **再接続/ハートビート**:
-   - 公式: 60秒ハートビート + ReconnectingWebSocket
-   - yomi: 5秒固定再接続
-   - Aria: 指数バックオフ
-6. **ポーリング間隔** (Streaming無効時): 公式は10-22.5秒、Mistdonは1-999分設定可能
+5. **ハートビート**: 公式は60秒、Ariaは1分、他はなし
+6. **再接続バックオフ**:
+   - 公式・Aria: 指数バックオフ
+   - yomi: 5秒固定
+   - Miria・Mistdon: 自動再接続（詳細不明）
+7. **ポーリング**:
+   - 公式: 10-22.5秒（リアルタイムモード無効時）
+   - Kimis: 2-5秒通知、5分ステータス（WebSocketなし）
+   - Mistdon: 1-999分（設定可能）
+   - yomi・Miria・Aria: なし（WebSocketのみ）
 
 ---
 
