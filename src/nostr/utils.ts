@@ -4,6 +4,10 @@ export function hexToNpub(hex: string): string {
   return nip19.npubEncode(hex);
 }
 
+export function hexToNevent(eventId: string): string {
+  return nip19.neventEncode({ id: eventId });
+}
+
 export function parseHexOrNpub(input: string): string | null {
   const trimmed = input.trim();
 

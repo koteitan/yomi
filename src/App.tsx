@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   getNip07Pubkey,
   parseHexOrNpub,
+  hexToNevent,
   fetchRelayList,
   fetchProfile,
   fetchFollowList,
@@ -784,9 +785,9 @@ function App() {
 
   const handleOpenFeed = (note: NoteWithRead) => {
     if (note.source === 'nostr') {
-      // Open in njump.me
-      const nevent = note.id; // TODO: encode as nevent
-      window.open(`https://njump.me/${nevent}`, '_blank');
+      // Open in nostter.app with bech32 nevent
+      const nevent = hexToNevent(note.id);
+      window.open(`https://nostter.app/${nevent}`, '_blank');
     } else if (note.source === 'bluesky') {
       // Convert at:// URI to web URL
       // at://did:plc:xxx/app.bsky.feed.post/yyy -> https://bsky.app/profile/did:plc:xxx/post/yyy
