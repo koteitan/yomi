@@ -88,6 +88,42 @@ export function isLoggedIn(): boolean {
 }
 
 /**
+ * Refresh the session using refreshJwt
+ */
+export async function refreshSession(): Promise<boolean> {
+  if (!session?.refreshJwt) {
+    logBluesky(' refreshSession: no refresh token');
+    return false;
+  }
+
+  try {
+    logBluesky(' refreshSession: refreshing...');
+    const res = await fetch(`${BSKY_API}/xrpc/com.atproto.server.refreshSession`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.refreshJwt}`,
+      },
+    });
+
+    if (!res.ok) {
+      logBluesky(' refreshSession failed:', res.status);
+      // Clear invalid session
+      session = null;
+      localStorage.removeItem(SESSION_KEY);
+      return false;
+    }
+
+    session = await res.json();
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    logBluesky(' refreshSession: success, handle:', session?.handle);
+    return true;
+  } catch (e) {
+    console.error('[bluesky] refreshSession error:', e);
+    return false;
+  }
+}
+
+/**
  * Get follows list for a handle (no auth required)
  */
 export async function getFollows(handle: string): Promise<BlueskyProfile[]> {
@@ -264,11 +300,24 @@ export async function getTimeline(since?: string): Promise<BlueskyPost[]> {
     const url = new URL(`${BSKY_API}/xrpc/app.bsky.feed.getTimeline`);
     url.searchParams.set('limit', '50');
 
-    const res = await fetch(url.toString(), {
+    let res = await fetch(url.toString(), {
       headers: {
         Authorization: `Bearer ${session.accessJwt}`,
       },
     });
+
+    // Try refresh on 400 error (expired token)
+    if (res.status === 400) {
+      logBluesky(' getTimeline: token expired, refreshing...');
+      const refreshed = await refreshSession();
+      if (refreshed && session) {
+        res = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${session.accessJwt}`,
+          },
+        });
+      }
+    }
 
     if (!res.ok) {
       logBluesky(` getTimeline failed: ${res.status}, ${Date.now() - startTime}ms`);
@@ -324,11 +373,24 @@ export async function peekLatest(since?: string): Promise<string | null> {
     const url = new URL(`${BSKY_API}/xrpc/app.bsky.feed.getTimeline`);
     url.searchParams.set('limit', '1');
 
-    const res = await fetch(url.toString(), {
+    let res = await fetch(url.toString(), {
       headers: {
         Authorization: `Bearer ${session.accessJwt}`,
       },
     });
+
+    // Try refresh on 400 error (expired token)
+    if (res.status === 400) {
+      logBluesky(' peekLatest: token expired, refreshing...');
+      const refreshed = await refreshSession();
+      if (refreshed && session) {
+        res = await fetch(url.toString(), {
+          headers: {
+            Authorization: `Bearer ${session.accessJwt}`,
+          },
+        });
+      }
+    }
 
     if (!res.ok) {
       logBluesky(` peekLatest failed: ${res.status}, ${Date.now() - startTime}ms`);
@@ -366,22 +428,33 @@ export async function createPost(text: string): Promise<boolean> {
     return false;
   }
 
-  try {
-    const res = await fetch(`${BSKY_API}/xrpc/com.atproto.repo.createRecord`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.accessJwt}`,
+  const makeRequest = () => fetch(`${BSKY_API}/xrpc/com.atproto.repo.createRecord`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session!.accessJwt}`,
+    },
+    body: JSON.stringify({
+      repo: session!.did,
+      collection: 'app.bsky.feed.post',
+      record: {
+        text,
+        createdAt: new Date().toISOString(),
       },
-      body: JSON.stringify({
-        repo: session.did,
-        collection: 'app.bsky.feed.post',
-        record: {
-          text,
-          createdAt: new Date().toISOString(),
-        },
-      }),
-    });
+    }),
+  });
+
+  try {
+    let res = await makeRequest();
+
+    // Try refresh on 400 error (expired token)
+    if (res.status === 400) {
+      logBluesky(' createPost: token expired, refreshing...');
+      const refreshed = await refreshSession();
+      if (refreshed && session) {
+        res = await makeRequest();
+      }
+    }
 
     if (!res.ok) {
       logBluesky(' createPost failed:', res.status);
@@ -405,22 +478,33 @@ export async function likePost(uri: string, cid: string): Promise<boolean> {
     return false;
   }
 
-  try {
-    const res = await fetch(`${BSKY_API}/xrpc/com.atproto.repo.createRecord`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.accessJwt}`,
+  const makeRequest = () => fetch(`${BSKY_API}/xrpc/com.atproto.repo.createRecord`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session!.accessJwt}`,
+    },
+    body: JSON.stringify({
+      repo: session!.did,
+      collection: 'app.bsky.feed.like',
+      record: {
+        subject: { uri, cid },
+        createdAt: new Date().toISOString(),
       },
-      body: JSON.stringify({
-        repo: session.did,
-        collection: 'app.bsky.feed.like',
-        record: {
-          subject: { uri, cid },
-          createdAt: new Date().toISOString(),
-        },
-      }),
-    });
+    }),
+  });
+
+  try {
+    let res = await makeRequest();
+
+    // Try refresh on 400 error (expired token)
+    if (res.status === 400) {
+      logBluesky(' likePost: token expired, refreshing...');
+      const refreshed = await refreshSession();
+      if (refreshed && session) {
+        res = await makeRequest();
+      }
+    }
 
     if (!res.ok) {
       logBluesky(' likePost failed:', res.status);
