@@ -54,6 +54,7 @@ export class SpeechManager {
   private isUnlocked = false;
   private timeoutId: ReturnType<typeof setTimeout> | null = null;
   private _volume = 1.0;
+  private isReading = false; // Thread-safe flag to track reading state
 
   constructor() {
     this.synth = window.speechSynthesis;
@@ -78,7 +79,20 @@ export class SpeechManager {
   }
 
   speak(text: string, lang: string, onEnd?: () => void, timeoutSeconds?: number): void {
-    this.stop();
+    logSpeech('speak() called, isReading:', this.isReading);
+
+    // Only cancel if we're currently reading (thread-safe check)
+    if (this.isReading) {
+      logSpeech('stopping previous speech');
+      this.stop();
+    } else {
+      // Just clear timeout and callback without calling synth.cancel()
+      if (this.timeoutId) {
+        clearTimeout(this.timeoutId);
+        this.timeoutId = null;
+      }
+      this.onEndCallback = null;
+    }
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang || i18n.language || 'en';
@@ -97,6 +111,7 @@ export class SpeechManager {
 
     utterance.onend = () => {
       logSpeech('onend');
+      this.isReading = false;
       clearTimeoutIfSet();
       if (this.onEndCallback) {
         this.onEndCallback();
@@ -105,6 +120,7 @@ export class SpeechManager {
 
     utterance.onerror = (event) => {
       logSpeech('onerror:', event.error);
+      this.isReading = false;
       clearTimeoutIfSet();
       if (event.error !== 'interrupted' && event.error !== 'canceled') {
         console.error('Speech error:', event.error);
@@ -114,6 +130,8 @@ export class SpeechManager {
       }
     };
 
+    // Set flag BEFORE calling synth.speak() for thread safety
+    this.isReading = true;
     this.isPaused = false;
     this.synth.speak(utterance);
     logSpeech('queued, speaking:', this.synth.speaking, 'pending:', this.synth.pending);
@@ -142,16 +160,19 @@ export class SpeechManager {
   }
 
   skip(): void {
+    logSpeech('skip() called');
     this.synth.cancel();
     // onEnd callback will be triggered by the cancel
   }
 
   stop(): void {
+    logSpeech('stop() called');
     if (this.timeoutId) {
       clearTimeout(this.timeoutId);
       this.timeoutId = null;
     }
     this.onEndCallback = null;
+    this.isReading = false;
     this.synth.cancel();
     this.isPaused = false;
   }
