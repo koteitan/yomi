@@ -20,6 +20,12 @@ export function logNostr(...args: unknown[]): void {
   }
 }
 
+export function logMisskey(...args: unknown[]): void {
+  if (eventLogEnabled) {
+    console.log('[misskey]', ...args);
+  }
+}
+
 export function logNostrEvent(createdAt: number, authorName: string, content: string): void {
   if (eventLogEnabled) {
     const datetime = formatDateTime(createdAt);
@@ -33,6 +39,14 @@ export function logBlueskyEvent(createdAt: string, authorName: string, content: 
     const datetime = formatDateTimeFromISO(createdAt);
     const truncatedContent = content.length > 50 ? content.slice(0, 50) + '...' : content;
     console.log(`[bluesky-event] ${datetime} ${authorName}: ${truncatedContent}`);
+  }
+}
+
+export function logMisskeyEvent(createdAt: string, authorName: string, content: string): void {
+  if (eventLogEnabled) {
+    const datetime = formatDateTimeFromISO(createdAt);
+    const truncatedContent = content.length > 50 ? content.slice(0, 50) + '...' : content;
+    console.log(`[misskey-event] ${datetime} ${authorName}: ${truncatedContent}`);
   }
 }
 

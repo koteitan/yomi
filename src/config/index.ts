@@ -19,6 +19,8 @@ export interface Config {
   sourceBluesky: boolean;
   blueskyHandle: string;
   blueskyAppKey: string;
+  sourceMisskey: boolean;
+  misskeyAccessToken: string;
   theme: ThemeMode;
 }
 
@@ -39,6 +41,8 @@ export const defaultConfig: Config = {
   sourceBluesky: false,
   blueskyHandle: '',
   blueskyAppKey: '',
+  sourceMisskey: false,
+  misskeyAccessToken: '',
   theme: 'light',
 };
 
