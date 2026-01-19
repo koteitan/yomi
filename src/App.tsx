@@ -29,6 +29,38 @@ import './App.css';
 type AppState = 'idle' | 'loading' | 'running' | 'paused';
 type NoteSource = 'nostr' | 'bluesky';
 
+// Pattern for linkifying text (URLs and nostr: addresses)
+const LINK_PATTERN = /(https?:\/\/[^\s]+|nostr:n(?:pub|sec|profile|event|ote|addr|relay)1[a-z0-9]+)/gi;
+
+// Convert URLs and nostr: addresses to clickable links
+function linkifyText(text: string): React.ReactNode[] {
+  const parts = text.split(LINK_PATTERN);
+  return parts.map((part, index) => {
+    if (!part) return null;
+
+    // Check for nostr: address
+    if (/^nostr:n/i.test(part)) {
+      const naddr = part.replace(/^nostr:/i, '');
+      return (
+        <a key={index} href={`https://nostter.app/${naddr}`} target="_blank" rel="noopener noreferrer">
+          {part}
+        </a>
+      );
+    }
+
+    // Check for URL
+    if (/^https?:\/\//i.test(part)) {
+      return (
+        <a key={index} href={part} target="_blank" rel="noopener noreferrer">
+          {part}
+        </a>
+      );
+    }
+
+    return part;
+  });
+}
+
 interface NoteWithRead {
   id: string;
   pubkey: string;
@@ -877,7 +909,7 @@ function App() {
                   <span className="note-author">
                     @{name} {displayName}
                   </span>
-                  <span className="note-content">{note.content}</span>
+                  <span className="note-content">{linkifyText(note.content)}</span>
                 </span>
               </div>
             );

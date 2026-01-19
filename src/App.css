@@ -386,6 +386,19 @@
   color: #000;
 }
 
+.note-content a {
+  color: #5a8fcf;
+  text-decoration: underline;
+}
+
+.note-content a:hover {
+  color: #3a6faf;
+}
+
+.note-item.read .note-content a {
+  color: #8ab0d8;
+}
+
 .note-actions {
   float: right;
   display: inline-flex;
