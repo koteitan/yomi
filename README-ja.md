@@ -1,25 +1,24 @@
 [English](README.md) | Japanese
 
 # yomi - Nostr/Bluesky/Misskey.io 音声読み上げクライアント
-Nostr/Bluesky/Misskey.ioの投稿を音声で読み上げるクライアントです。
+[Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://misskey.io)の投稿を音声で読み上げるクライアントです。
 
 ## ユーザー向け
 ### 使い方
-1. ブラウザでアプリを開く
-2. NIP-07拡張機能があれば、pubkeyが自動で読み込まれます
-3. または、pubkey（hex形式またはnpub形式）を手動で入力
+1. 各プラットフォームを有効化・設定:
+   - **Nostr**: NIP-07拡張機能（Chrome: [nos2x](https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp)、Firefox: [nos2x-fox](https://addons.mozilla.org/firefox/addon/nos2x-fox/)）またはpubkeyを手動入力
+   - **Bluesky**: 設定 > プライバシーとセキュリティ > [アプリパスワード](https://bsky.app/settings/app-passwords) > ハンドルとアプリパスワードを入力
+   - **Misskey\.io**: 設定 > サービス連携 > [アクセストークンの発行](https://misskey.io/settings/connect)
+2. ブラウザで[yomi](https://koteitan.github.io/yomi)を開く
+3. 歯車アイコンをクリックして設定ダイアログを開く
 4. 「開始」をクリックして、フォローしているユーザーの投稿の読み上げを開始
-5. 「一時停止」「スキップ」「停止」ボタンで再生をコントロール
-6. メッセージを入力して「投稿」をクリックでノートを投稿（NIP-07が必要）
 
 ### 動作要件
 #### Windows/Mac/iOS/Android
 - モダンブラウザ（Chrome、Firefox、Safari、Edge）
-- NIP-07ブラウザ拡張機能（nos2x、Albyなど）でpubkeyの自動読み込みと投稿の署名が可能
 
 #### Linux
 - Web Speech API対応のモダンブラウザ
-- NIP-07ブラウザ拡張機能
 - 音声合成エンジンのインストール:
 
 Ubuntu/Debian:
@@ -31,6 +30,15 @@ Arch:
 ```bash
 sudo pacman -S speech-dispatcher espeak-ng
 ```
+
+### テスト済み環境
+
+| OS              | ブラウザ                | フォアグラウンド再生 | バックグラウンド再生 | Bluetooth 再生 | 音声認識(本体) | 音声認識(Bluetooth) |
+| --------------- | ----------------------- | -------------------- | -------------------- | -------------- | -------------- | ------------------- |
+| Windows 11 25H2 | Chrome 143.0.7499.194   | ✔                    | ✔                    | ✔              | ✔              | ✔                   |
+| iOS 26.2        | Safari 26.6             | ✔                    |                      | ✔              | ✔              |                     |
+| Android 13      | Chrome 143.0.7499.194   | ✔                    |                      | ✔              | ✔              | ✔                   |
+| Android 13      | Firefox Nightly 149.0a1 | ✔                    | ✔                    | ✔              |                |                     |
 
 ### 対応言語
 読み上げに使用できる言語は、ブラウザとOSによって異なります。以下は一般的にサポートされている言語です：
@@ -91,15 +99,6 @@ sudo pacman -S speech-dispatcher espeak-ng
 | zyb | 壮语 | | | | |
 
 **注意**: 自動言語判定が正しく動作するには、判定された言語がTTSでもサポートされている必要があります。
-
-### テスト済み環境
-
-| OS              | ブラウザ                | フォアグラウンド再生 | バックグラウンド再生 | Bluetooth 再生 | 音声認識(本体) | 音声認識(Bluetooth) |
-| --------------- | ----------------------- | -------------------- | -------------------- | -------------- | -------------- | ------------------- |
-| Windows 11 25H2 | Chrome 143.0.7499.194   | ✔                    | ✔                    | ✔              | ✔              | ✔                   |
-| iOS 26.2        | Safari 26.6             | ✔                    |                      | ✔              | ✔              |                     |
-| Android 13      | Chrome 143.0.7499.194   | ✔                    |                      | ✔              | ✔              | ✔                   |
-| Android 13      | Firefox Nightly 149.0a1 | ✔                    | ✔                    | ✔              |                |                     |
 
 ## 開発者向け
 ### 動作要件

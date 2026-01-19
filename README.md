@@ -1,25 +1,24 @@
 English | [Japanese](README-ja.md)
 
 # yomi - Nostr/Bluesky/Misskey.io TTS Reading Client
-A Nostr/Bluesky/Misskey.io client that reads out posts using text-to-speech.
+A [Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://misskey.io) client that reads out posts using text-to-speech.
 
 ## For Users
 ### Usage
-1. Open the app in your browser
-2. Your pubkey will be loaded automatically if you have a NIP-07 extension
-3. Or enter your pubkey (hex or npub format) manually
+1. Enable and configure your platforms:
+   - **Nostr**: Use NIP-07 extension ([nos2x](https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp) for Chrome, [nos2x-fox](https://addons.mozilla.org/firefox/addon/nos2x-fox/) for Firefox) or enter pubkey manually
+   - **Bluesky**: Settings > Privacy and Security > [App Passwords](https://bsky.app/settings/app-passwords) > Enter handle and app password
+   - **Misskey\.io**: Settings > [Service integration](https://misskey.io/settings/connect) > Generate access token
+2. Open [yomi](https://koteitan.github.io/yomi) in your browser
+3. Click the gear icon to open the config dialog
 4. Click "Start" to begin reading posts from your follows
-5. Use "Pause", "Skip", "Stop" buttons to control playback
-6. Type a message and click "Post" to publish a note (requires NIP-07)
 
 ### Requirements
 #### Windows/Mac/iOS/Android
 - A modern browser (Chrome, Firefox, Safari, Edge)
-- NIP-07 browser extension (e.g., nos2x, Alby) to read pubkey automatically and sign posts
 
 #### Linux
 - A modern browser with Web Speech API support
-- NIP-07 browser extension
 - Speech synthesis voices installed:
 
 Ubuntu/Debian:
@@ -31,6 +30,15 @@ Arch:
 ```bash
 sudo pacman -S speech-dispatcher espeak-ng
 ```
+
+### Tested Environments
+
+| OS              | Browser                 | Foreground Playback  | Background Playback  | Bluetooth Playback | Speech Recognition (on device)|Speech Recognition (Bluetooth)|
+| --------------- | ----------------------- | -------------------- | -------------------- | ------------------ | ----------------------------- | ---------------------------- |
+| Windows 11 25H2 | Chrome 143.0.7499.194   | ✔                    | ✔                    | ✔                  | ✔                             | ✔                            |
+| iOS 26.2        | Safari 26.6             | ✔                    |                      | ✔                  | ✔                             |                              |
+| Android 13      | Chrome 143.0.7499.194   | ✔                    |                      | ✔                  | ✔                             | ✔                            |
+| Android 13      | Firefox Nightly 149.0a1 | ✔                    | ✔                    | ✔                  |                               |                              |
 
 ### Supported Languages
 Available languages for text-to-speech depend on your browser and OS. Below are commonly supported languages:
@@ -91,15 +99,6 @@ The "Auto detect by author" and "Auto detect by note" features use [franc-min](h
 | zyb | 壮语 | | | | |
 
 **Note**: For auto language detection to work correctly, the detected language must also be supported by TTS.
-
-### Tested Environments
-
-| OS              | Browser                 | Foreground Playback  | Background Playback  | Bluetooth Playback | Speech Recognition (on device)|Speech Recognition (Bluetooth)|
-| --------------- | ----------------------- | -------------------- | -------------------- | ------------------ | ----------------------------- | ---------------------------- |
-| Windows 11 25H2 | Chrome 143.0.7499.194   | ✔                    | ✔                    | ✔                  | ✔                             | ✔                            |
-| iOS 26.2        | Safari 26.6             | ✔                    |                      | ✔                  | ✔                             |                              |
-| Android 13      | Chrome 143.0.7499.194   | ✔                    |                      | ✔                  | ✔                             | ✔                            |
-| Android 13      | Firefox Nightly 149.0a1 | ✔                    | ✔                    | ✔                  |                               |                              |
 
 ## For Developers
 ### Requirements
