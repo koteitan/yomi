@@ -366,6 +366,20 @@
   border-left: 3px solid #c4946a;
 }
 
+.note-datetime {
+  color: #8a7d72;
+  font-size: 12px;
+  margin-right: 8px;
+}
+
+.note-item.read .note-datetime {
+  color: #a89888;
+}
+
+.note-item.current .note-datetime {
+  color: #666;
+}
+
 .note-author {
   color: #5c4a3d;
   font-weight: 500;
@@ -1012,6 +1026,18 @@
 .dark .note-item.current {
   background: #1a2a42;
   border-left-color: #ff8c00;
+}
+
+.dark .note-datetime {
+  color: #7a8598;
+}
+
+.dark .note-item.read .note-datetime {
+  color: #5a6578;
+}
+
+.dark .note-item.current .note-datetime {
+  color: #9ab0c8;
 }
 
 .dark .note-author {

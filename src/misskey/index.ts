@@ -174,7 +174,7 @@ export async function getTimeline(sinceId?: string): Promise<MisskeyNote[]> {
   try {
     const body: Record<string, unknown> = {
       i: accessToken,
-      limit: 50,
+      limit: 1,
     };
     if (sinceId) {
       body.sinceId = sinceId;

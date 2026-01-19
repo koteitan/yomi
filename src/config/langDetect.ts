@@ -52,12 +52,39 @@ const francToBcp47: Record<string, string> = {
   swh: 'sw',
 };
 
+// Hiragana: U+3040-U+309F, Katakana: U+30A0-U+30FF
+const japaneseKanaRegex = /[\u3040-\u309F\u30A0-\u30FF]/;
+
+// Patterns to remove before language detection
+const urlRegex = /https?:\/\/[^\s]+/gi;
+const hashtagRegex = /#[^\s]+/gi;
+const nostrRegex = /nostr:[^\s]+/gi;
+
+function preprocessForDetection(text: string): string {
+  return text
+    .replace(urlRegex, '')
+    .replace(hashtagRegex, '')
+    .replace(nostrRegex, '')
+    .trim();
+}
+
 export function detectLanguage(text: string): string {
-  const detected = franc(text);
+  // Preprocess: remove URLs, hashtags, nostr addresses
+  const cleanText = preprocessForDetection(text);
+
+  const detected = franc(cleanText);
+  let lang = francToBcp47[detected] || 'en';
+
   if (detected === 'und') {
-    return 'en'; // fallback to English if undetermined
+    lang = 'en'; // fallback to English if undetermined
   }
-  return francToBcp47[detected] || 'en';
+
+  // Override: if original text contains hiragana or katakana, force Japanese
+  if (japaneseKanaRegex.test(text)) {
+    lang = 'ja';
+  }
+
+  return lang;
 }
 
 // Author language detection: weighted by character count

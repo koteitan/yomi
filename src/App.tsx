@@ -62,6 +62,17 @@ function linkifyText(text: string): React.ReactNode[] {
   });
 }
 
+function formatDateTime(timestamp: number): string {
+  const date = new Date(timestamp * 1000);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+}
+
 interface NoteWithRead {
   id: string;
   pubkey: string;
@@ -1093,6 +1104,8 @@ function App() {
                   </button>
                 </span>
                 <span className="note-text">
+                  <span className="note-datetime">{formatDateTime(note.created_at)}</span>
+                  {' '}
                   <span className="note-author">
                     @{name} {displayName}
                   </span>
