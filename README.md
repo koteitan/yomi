@@ -1,7 +1,7 @@
 English | [Japanese](README-ja.md)
 
-# yomi - Nostr/Bluesky TTS Reader
-A Nostr client that reads out posts using text-to-speech.
+# yomi - Nostr/Bluesky/Misskey.io TTS Reading Client
+A Nostr/Bluesky/Misskey.io client that reads out posts using text-to-speech.
 
 ## For Users
 ### Usage
