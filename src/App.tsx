@@ -921,7 +921,12 @@ function App() {
           {config.sourceMisskey && (
             <>
               {misskeyProfile?.avatarUrl && /^https?:\/\//i.test(misskeyProfile.avatarUrl) && (
-                <img src={misskeyProfile.avatarUrl} alt="" className="profile-icon" />
+                <img
+                  src={misskeyProfile.avatarUrl}
+                  alt=""
+                  className="profile-icon"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
               )}
               <span className="profile-name">
                 {misskeyProfile?.name || misskeyProfile?.username || ''}
