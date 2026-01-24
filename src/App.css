@@ -307,6 +307,16 @@
   font-size: 14px;
 }
 
+.ws-debug-status {
+  color: #8a7d72;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.ws-debug-status.error {
+  color: #c47a6a;
+}
+
 .current-note {
   border-top: 1px solid #e8e0d8;
   padding-top: 12px;
@@ -988,6 +998,14 @@
 
 .dark .queue-status {
   color: #ff9f33;
+}
+
+.dark .ws-debug-status {
+  color: #cc7000;
+}
+
+.dark .ws-debug-status.error {
+  color: #ff6b5a;
 }
 
 .dark .current-note {

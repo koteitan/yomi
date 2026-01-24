@@ -117,6 +117,19 @@ npm run dev
 ```
 ブラウザで http://localhost:5173 を開いてください。
 
+### WebSocketデバッグモード
+リモートデバッグ用に、すべてのコンソール出力をWebSocketサーバーに転送します。
+
+1. WebSocketサーバーを起動:
+```bash
+node tools/wsserver.cjs > console-log.txt
+```
+
+2. `?ws=host:port`パラメータ付きでアプリを開く:
+```
+http://localhost:5173/?ws=localhost:8080
+```
+
 ## ライセンス
 - 本プロジェクト: [MIT License](LICENSE)
 - サードパーティライブラリ: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)

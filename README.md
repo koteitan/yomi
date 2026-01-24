@@ -117,6 +117,19 @@ npm run dev
 ```
 Open http://localhost:5173 in your browser.
 
+### WebSocket Debug Mode
+Forward all console output to a WebSocket server for remote debugging.
+
+1. Start the WebSocket server:
+```bash
+node tools/wsserver.cjs > console-log.txt
+```
+
+2. Open the app with `?ws=host:port` parameter:
+```
+http://localhost:5173/?ws=localhost:8080
+```
+
 ## License
 - This project: [MIT License](LICENSE)
 - Third-party libraries: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)

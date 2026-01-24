@@ -111,6 +111,7 @@ function App() {
   const [misskeyProfile, setMisskeyProfile] = useState<misskey.MisskeyProfile | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [favoritedNotes, setFavoritedNotes] = useState<Set<string>>(new Set());
+  const [wsDebugStatus, setWsDebugStatus] = useState(window.wsDebugStatus);
 
   const recognitionRef = useRef<{ stop(): void } | null>(null);
   const isMutedRef = useRef(false);
@@ -165,6 +166,16 @@ function App() {
   useEffect(() => {
     profilesRef.current = profiles;
   }, [profiles]);
+
+  // Listen for wsDebug status changes
+  useEffect(() => {
+    const handleStatusChange = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setWsDebugStatus({ ...customEvent.detail });
+    };
+    window.addEventListener('wsDebugStatusChange', handleStatusChange);
+    return () => window.removeEventListener('wsDebugStatusChange', handleStatusChange);
+  }, []);
 
   // Apply theme
   useEffect(() => {
@@ -1165,6 +1176,11 @@ function App() {
             ? t('loading')
             : `${t('statusRead', { count: readCount })}, ${t('statusQueue', { count: unreadCount })}`}
         </div>
+        {wsDebugStatus?.enabled && (
+          <div className={`ws-debug-status${wsDebugStatus.error ? ' error' : ''}`}>
+            WS Debug: {wsDebugStatus.connected ? 'Connected' : wsDebugStatus.error || 'Connecting...'}
+          </div>
+        )}
       </div>
 
       <div className="config-row">
