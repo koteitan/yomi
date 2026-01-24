@@ -160,9 +160,26 @@ export class SpeechManager {
   }
 
   skip(): void {
-    logSpeech('skip() called');
+    logSpeech('skip() called, isReading:', this.isReading, 'speaking:', this.synth.speaking);
+
+    // Clear timeout first
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+
+    // Save callback before cancel (cancel may or may not trigger onend/onerror)
+    const callback = this.onEndCallback;
+    this.onEndCallback = null;
+    this.isReading = false;
+
     this.synth.cancel();
-    // onEnd callback will be triggered by the cancel
+    logSpeech('skip: synth.cancel() done, calling callback');
+
+    // Always call callback since synth.cancel() doesn't reliably fire events
+    if (callback) {
+      callback();
+    }
   }
 
   stop(): void {
