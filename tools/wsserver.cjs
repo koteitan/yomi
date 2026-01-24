@@ -3,9 +3,13 @@
 // Receives console output from yomi app via WebSocket
 
 const WebSocket = require('ws');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 
 const args = process.argv.slice(2);
 let port = 8080;
+let useSSL = false;
 
 // Parse arguments
 for (let i = 0; i < args.length; i++) {
@@ -15,15 +19,18 @@ for (let i = 0; i < args.length; i++) {
 
 Options:
   -p, --port <port>  Port to listen on (default: 8080)
+  -s, --ssl          Enable SSL (wss://) with self-signed certificate
   -h, --help         Show this help message
 
 Examples:
   node wsserver.cjs
   node wsserver.cjs -p 9000
+  node wsserver.cjs -s -p 9000        # SSL mode for HTTPS pages
   node wsserver.cjs -p 8080 > console-log.txt
 
 Client usage:
-  Open https://your-app/?ws=host:port in browser`);
+  HTTP:  http://localhost:5173/?ws=localhost:8080
+  HTTPS: https://localhost:5173/?ws=localhost:9000  (use -s flag)`);
     process.exit(0);
   } else if (arg === '-p' || arg === '--port') {
     port = parseInt(args[++i], 10);
@@ -31,14 +38,50 @@ Client usage:
       console.error('Error: Invalid port number');
       process.exit(1);
     }
+  } else if (arg === '-s' || arg === '--ssl') {
+    useSSL = true;
   } else if (!isNaN(parseInt(arg, 10))) {
     // Support legacy positional argument
     port = parseInt(arg, 10);
   }
 }
 
-const wss = new WebSocket.Server({ port });
-console.error(`[wsserver] listening on ws://0.0.0.0:${port}`);
+let wss;
+
+if (useSSL) {
+  // Generate self-signed certificate on the fly
+  const { execSync } = require('child_process');
+  const certDir = path.join(__dirname, '.certs');
+  const keyPath = path.join(certDir, 'key.pem');
+  const certPath = path.join(certDir, 'cert.pem');
+
+  if (!fs.existsSync(certDir)) {
+    fs.mkdirSync(certDir, { recursive: true });
+  }
+
+  if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
+    console.error('[wsserver] generating self-signed certificate...');
+    try {
+      execSync(`openssl req -x509 -newkey rsa:2048 -keyout "${keyPath}" -out "${certPath}" -days 365 -nodes -subj "/CN=localhost"`, { stdio: 'pipe' });
+    } catch (e) {
+      console.error('[wsserver] failed to generate certificate. Make sure openssl is installed.');
+      console.error('[wsserver] On Windows, you can install it via: winget install OpenSSL');
+      process.exit(1);
+    }
+  }
+
+  const server = https.createServer({
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath),
+  });
+
+  wss = new WebSocket.Server({ server });
+  server.listen(port);
+  console.error(`[wsserver] listening on wss://0.0.0.0:${port} (SSL mode)`);
+} else {
+  wss = new WebSocket.Server({ port });
+  console.error(`[wsserver] listening on ws://0.0.0.0:${port}`);
+}
 
 wss.on('connection', (ws, req) => {
   const clientAddr = req.socket.remoteAddress;
