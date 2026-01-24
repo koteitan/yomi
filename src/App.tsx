@@ -125,7 +125,6 @@ function App() {
   const isProcessingRef = useRef(false);
   const notesRef = useRef<NoteWithRead[]>([]);
   const appStateRef = useRef<AppState>('idle');
-  const blueskyFollowsRef = useRef<bluesky.BlueskyProfile[]>([]);
   const blueskyPollingRef = useRef<number | null>(null);
   const blueskyLastFetchRef = useRef<string | undefined>(undefined);
   const profilesRef = useRef<Map<string, Profile>>(new Map());
@@ -514,6 +513,13 @@ function App() {
       }
       notesRef.current = newNotes;
       setNotes(newNotes);
+
+      // Start running immediately when first post arrives (don't wait for all sources)
+      if (appStateRef.current === 'loading') {
+        log('[app] running!');
+        appStateRef.current = 'running'; // Update ref immediately (state is async)
+        setAppState('running');
+      }
     }
   }, []);
 
@@ -553,6 +559,13 @@ function App() {
       }
       notesRef.current = newNotes;
       setNotes(newNotes);
+
+      // Start running immediately when first note arrives (don't wait for all sources)
+      if (appStateRef.current === 'loading') {
+        log('[app] running!');
+        appStateRef.current = 'running'; // Update ref immediately (state is async)
+        setAppState('running');
+      }
     }
   }, []);
 
@@ -565,153 +578,141 @@ function App() {
     setNotes([]);
     setCurrentNoteId(null);
 
+    // Helper to set running state (called when first note arrives from any source)
+    const setRunningIfLoading = () => {
+      if (appStateRef.current === 'loading') {
+        log('[app] running!');
+        appStateRef.current = 'running';
+        setAppState('running');
+      }
+    };
+
+    // Nostr source initialization
+    const initNostr = async (): Promise<boolean> => {
+      if (!config.sourceNostr) return false;
+
+      const hexPubkey = getNostrPubkey();
+      if (!hexPubkey) return false;
+
+      logNostr('fetching relay list...');
+      const relays = await fetchRelayList(hexPubkey);
+      logNostr('relay list:', relays.length, 'relays');
+      relaysRef.current = relays;
+
+      logNostr('fetching follow list...');
+      const followList = await fetchFollowList(hexPubkey, relays);
+      logNostr('follow list:', followList.length, 'follows');
+
+      if (followList.length === 0) return false;
+
+      // Fetch profiles in background
+      logNostr('fetching profiles (background)...');
+      fetchProfiles(followList, relays, (p) => {
+        setProfiles((prev) => new Map(prev).set(p.pubkey, p));
+      });
+
+      // Subscribe to notes
+      logNostr('subscribing to notes...');
+      const unsubscribe = subscribeToNotes(followList, relays, (note, shouldReplace) => {
+        if (notesRef.current.some((n) => n.id === note.id)) return;
+
+        updateAuthorLanguage(note.pubkey, note.content);
+        const profile = profilesRef.current.get(note.pubkey);
+        const authorName = profile?.display_name || profile?.name || note.pubkey.slice(0, 8);
+        logNostrEvent(note.created_at, authorName, note.content);
+
+        let newNotes: NoteWithRead[];
+        if (shouldReplace) {
+          const keepNotes = notesRef.current.filter((n) => n.read || n.source !== 'nostr');
+          newNotes = [{ ...note, read: false, source: 'nostr' }, ...keepNotes];
+        } else {
+          newNotes = [{ ...note, read: false, source: 'nostr' }, ...notesRef.current];
+          newNotes.sort((a, b) => b.created_at - a.created_at);
+          if (newNotes.length > 200) newNotes = newNotes.slice(0, 200);
+        }
+        notesRef.current = newNotes;
+        setNotes(newNotes);
+        setRunningIfLoading();
+      });
+      unsubscribeRef.current = unsubscribe;
+      return true;
+    };
+
+    // Bluesky source initialization
+    const initBluesky = async (): Promise<boolean> => {
+      if (!config.sourceBluesky || !config.blueskyHandle || !config.blueskyAppKey) return false;
+
+      if (!bluesky.isLoggedIn()) {
+        logBluesky('logging in...');
+        await bluesky.login(config.blueskyHandle, config.blueskyAppKey);
+      }
+
+      if (!bluesky.isLoggedIn()) {
+        logBluesky('login failed, skipping Bluesky');
+        return false;
+      }
+
+      logBluesky('fetching timeline...');
+      const posts = await bluesky.getTimeline();
+      logBluesky('posts:', posts.length);
+      addBlueskyPosts(posts, true);
+      if (posts.length > 0) {
+        blueskyLastFetchRef.current = posts[0].createdAt;
+      }
+
+      // Start polling
+      blueskyPollingRef.current = window.setInterval(async () => {
+        if (appStateRef.current !== 'running') return;
+        const hasNew = await bluesky.peekLatest(blueskyLastFetchRef.current);
+        if (!hasNew) return;
+        logBluesky('new post detected, fetching...');
+        const newPosts = await bluesky.getTimeline(blueskyLastFetchRef.current);
+        if (newPosts.length > 0) {
+          logBluesky('new posts:', newPosts.length);
+          addBlueskyPosts(newPosts);
+          blueskyLastFetchRef.current = newPosts[0].createdAt;
+        }
+      }, 5000);
+
+      return true;
+    };
+
+    // Misskey source initialization
+    const initMisskey = async (): Promise<boolean> => {
+      if (!config.sourceMisskey || !config.misskeyAccessToken) return false;
+
+      if (!misskey.isLoggedIn()) {
+        logMisskey('logging in...');
+        await misskey.login(config.misskeyAccessToken);
+      }
+
+      if (!misskey.isLoggedIn()) {
+        logMisskey('login failed, skipping Misskey');
+        return false;
+      }
+
+      logMisskey('fetching initial note...');
+      const notes = await misskey.getTimeline();
+      logMisskey('notes:', notes.length);
+      addMisskeyNotes(notes, true);
+
+      logMisskey('connecting to stream...');
+      misskey.connectStream((note) => {
+        if (appStateRef.current !== 'running') return;
+        logMisskey('stream note:', note.user.name || note.user.username);
+        addMisskeyNotes([note], false);
+      });
+
+      return true;
+    };
+
     try {
-      let hasAnySource = false;
+      // Run all sources in parallel
+      const results = await Promise.allSettled([initNostr(), initBluesky(), initMisskey()]);
 
-      // Nostr source
-      if (config.sourceNostr) {
-        const hexPubkey = getNostrPubkey();
-        if (hexPubkey) {
-          // Fetch relay list
-          logNostr('fetching relay list...');
-          const relays = await fetchRelayList(hexPubkey);
-          logNostr('relay list:', relays.length, 'relays');
-          relaysRef.current = relays;
-
-          // Fetch follow list
-          logNostr('fetching follow list...');
-          const followList = await fetchFollowList(hexPubkey, relays);
-          logNostr('follow list:', followList.length, 'follows');
-
-          if (followList.length > 0) {
-            hasAnySource = true;
-
-            // Fetch profiles of followees (don't await, let it run in background)
-            logNostr('fetching profiles (background)...');
-            fetchProfiles(followList, relays, (p) => {
-              setProfiles((prev) => new Map(prev).set(p.pubkey, p));
-            });
-
-            // Subscribe to kind:1 notes
-            logNostr('subscribing to notes...');
-            const unsubscribe = subscribeToNotes(followList, relays, (note, shouldReplace) => {
-              // Skip if already exists
-              if (notesRef.current.some((n) => n.id === note.id)) {
-                return;
-              }
-
-              // Update author language data for auto-detection
-              updateAuthorLanguage(note.pubkey, note.content);
-              const profile = profilesRef.current.get(note.pubkey);
-              const authorName = profile?.display_name || profile?.name || note.pubkey.slice(0, 8);
-              logNostrEvent(note.created_at, authorName, note.content);
-
-              let newNotes: NoteWithRead[];
-              if (shouldReplace) {
-                // Before EOSE: replace all unread notes with this one
-                const readNotes = notesRef.current.filter((n) => n.read);
-                newNotes = [{ ...note, read: false, source: 'nostr' }, ...readNotes];
-              } else {
-                // After EOSE: prepend new notes (newer at top)
-                newNotes = [{ ...note, read: false, source: 'nostr' }, ...notesRef.current];
-                newNotes.sort((a, b) => b.created_at - a.created_at);
-                // Keep only first 200 notes (newest)
-                if (newNotes.length > 200) {
-                  newNotes = newNotes.slice(0, 200);
-                }
-              }
-              notesRef.current = newNotes;
-              setNotes(newNotes);
-            });
-            unsubscribeRef.current = unsubscribe;
-          }
-        }
-      }
-
-      // Bluesky source
-      if (config.sourceBluesky && config.blueskyHandle) {
-        // Login if app key is configured
-        if (!bluesky.isLoggedIn() && config.blueskyAppKey) {
-          logBluesky('logging in...');
-          await bluesky.login(config.blueskyHandle, config.blueskyAppKey);
-        }
-        const useTimeline = bluesky.isLoggedIn();
-        logBluesky(`useTimeline: ${useTimeline}`);
-
-        if (!useTimeline) {
-          // Not logged in: fetch follows list first
-          logBluesky('fetching follows...');
-          const follows = await bluesky.getFollows(config.blueskyHandle);
-          logBluesky('follows:', follows.length);
-          blueskyFollowsRef.current = follows;
-          if (follows.length === 0) {
-            logBluesky('no follows found');
-          }
-        }
-
-        if (useTimeline || blueskyFollowsRef.current.length > 0) {
-          hasAnySource = true;
-
-          // Fetch initial posts
-          logBluesky('fetching posts...');
-          const posts = useTimeline
-            ? await bluesky.getTimeline()
-            : await bluesky.getFollowsPosts(blueskyFollowsRef.current);
-          logBluesky('posts:', posts.length);
-          addBlueskyPosts(posts, true); // Initial load: only keep one post
-          if (posts.length > 0) {
-            blueskyLastFetchRef.current = posts[0].createdAt;
-          }
-
-          // Start polling for new posts
-          blueskyPollingRef.current = window.setInterval(async () => {
-            if (appStateRef.current !== 'running') return;
-
-            // For logged-in users: peek first, then fetch if new posts exist
-            if (useTimeline) {
-              const hasNew = await bluesky.peekLatest(blueskyLastFetchRef.current);
-              if (!hasNew) return;
-              logBluesky('new post detected, fetching...');
-            }
-
-            const newPosts = useTimeline
-              ? await bluesky.getTimeline(blueskyLastFetchRef.current)
-              : await bluesky.getFollowsPosts(blueskyFollowsRef.current, blueskyLastFetchRef.current);
-            if (newPosts.length > 0) {
-              logBluesky('new posts:', newPosts.length);
-              addBlueskyPosts(newPosts);
-              blueskyLastFetchRef.current = newPosts[0].createdAt;
-            }
-          }, 5000); // Poll every 5 seconds
-        }
-      }
-
-      // Misskey source
-      if (config.sourceMisskey && config.misskeyAccessToken) {
-        // Login if not already
-        if (!misskey.isLoggedIn()) {
-          logMisskey('logging in...');
-          await misskey.login(config.misskeyAccessToken);
-        }
-
-        if (misskey.isLoggedIn()) {
-          hasAnySource = true;
-
-          // Fetch initial note
-          logMisskey('fetching initial note...');
-          const notes = await misskey.getTimeline();
-          logMisskey('notes:', notes.length);
-          addMisskeyNotes(notes, true); // Initial load: only keep one note
-
-          // Connect to streaming API for real-time updates
-          logMisskey('connecting to stream...');
-          misskey.connectStream((note) => {
-            if (appStateRef.current !== 'running') return;
-            logMisskey('stream note:', note.user.name || note.user.username);
-            addMisskeyNotes([note], false);
-          });
-        }
-      }
+      const hasAnySource = results.some(
+        (r) => r.status === 'fulfilled' && r.value === true
+      );
 
       if (!hasAnySource) {
         log('[app] no sources available');
@@ -719,8 +720,12 @@ function App() {
         return;
       }
 
-      log('[app] running!');
-      setAppState('running');
+      // Set running if not already set by callbacks
+      if (appStateRef.current !== 'running') {
+        log('[app] running!');
+        appStateRef.current = 'running';
+        setAppState('running');
+      }
     } catch (error) {
       console.error('Error starting:', error);
       setAppState('idle');
@@ -822,7 +827,6 @@ function App() {
       clearInterval(blueskyPollingRef.current);
       blueskyPollingRef.current = null;
     }
-    blueskyFollowsRef.current = [];
     blueskyLastFetchRef.current = undefined;
     // Stop Misskey streaming
     misskey.disconnectStream();

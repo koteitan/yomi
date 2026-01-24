@@ -43,6 +43,7 @@ try {
 /**
  * Login to Bluesky with handle and app password
  * @param force - Force new login even if session exists
+ * Retries with exponential backoff on rate limit (429) errors
  */
 export async function login(handle: string, appPassword: string, force = false): Promise<boolean> {
   // Use existing session if not forced
@@ -51,25 +52,49 @@ export async function login(handle: string, appPassword: string, force = false):
     return true;
   }
 
-  try {
-    const res = await fetch(`${BSKY_API}/xrpc/com.atproto.server.createSession`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier: handle, password: appPassword }),
-    });
-    if (!res.ok) {
+  const MAX_RETRIES = 5;
+  let delay = 1000; // Start with 1 second
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${BSKY_API}/xrpc/com.atproto.server.createSession`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: handle, password: appPassword }),
+      });
+
+      if (res.ok) {
+        session = await res.json();
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        logBluesky(' logged in as:', session?.handle);
+        return true;
+      }
+
+      // Retry on rate limit (429) or server errors (5xx)
+      if (res.status === 429 || res.status >= 500) {
+        if (attempt < MAX_RETRIES) {
+          logBluesky(` login failed: ${res.status}, retrying in ${delay / 1000}s (${attempt}/${MAX_RETRIES})`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay *= 2; // Exponential backoff
+          continue;
+        }
+      }
+
       logBluesky(' login failed:', res.status);
       return false;
+    } catch (e) {
+      if (attempt < MAX_RETRIES) {
+        logBluesky(` login error, retrying in ${delay / 1000}s (${attempt}/${MAX_RETRIES}):`, e);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
+      }
+      console.error('[bluesky] login error:', e);
+      return false;
     }
-    session = await res.json();
-    // Save session to localStorage
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    logBluesky(' logged in as:', session?.handle);
-    return true;
-  } catch (e) {
-    console.error('[bluesky] login error:', e);
-    return false;
   }
+
+  return false;
 }
 
 /**
@@ -124,60 +149,6 @@ export async function refreshSession(): Promise<boolean> {
 }
 
 /**
- * Get follows list for a handle (no auth required)
- */
-export async function getFollows(handle: string): Promise<BlueskyProfile[]> {
-  const follows: BlueskyProfile[] = [];
-  let cursor: string | undefined;
-  let pageNum = 0;
-  const startTime = Date.now();
-  logBluesky(' getFollows start');
-
-  try {
-    do {
-      pageNum++;
-      const url = new URL(`${PUBLIC_API}/xrpc/app.bsky.graph.getFollows`);
-      url.searchParams.set('actor', handle);
-      url.searchParams.set('limit', '100');
-      if (cursor) url.searchParams.set('cursor', cursor);
-
-      const res = await fetch(url.toString());
-      if (!res.ok) {
-        try {
-          const errorData = await res.json();
-          if (errorData.message === 'Profile not found') {
-            logBluesky(' profile not found:', handle);
-          } else {
-            logBluesky(' getFollows failed:', res.status, errorData.message || errorData.error);
-          }
-        } catch {
-          logBluesky(' getFollows failed:', res.status);
-        }
-        break;
-      }
-
-      const data = await res.json();
-      for (const f of data.follows || []) {
-        follows.push({
-          did: f.did,
-          handle: f.handle,
-          displayName: f.displayName,
-          avatar: f.avatar,
-        });
-      }
-      cursor = data.cursor;
-      logBluesky(` getFollows page ${pageNum}: ${follows.length} follows, ${Date.now() - startTime}ms`);
-    } while (cursor);
-
-    logBluesky(` getFollows done: ${follows.length} follows in ${Date.now() - startTime}ms`);
-    return follows;
-  } catch (e) {
-    console.error('[bluesky] getFollows error:', e);
-    return [];
-  }
-}
-
-/**
  * Get profile for a handle (no auth required)
  */
 export async function getProfile(handle: string): Promise<BlueskyProfile | null> {
@@ -215,71 +186,6 @@ export async function getProfile(handle: string): Promise<BlueskyProfile | null>
   } catch (e) {
     console.error('[bluesky] getProfile error:', e);
     return null;
-  }
-}
-
-/**
- * Get posts from followed accounts (no auth required, but slower)
- */
-export async function getFollowsPosts(
-  follows: BlueskyProfile[],
-  since?: string
-): Promise<BlueskyPost[]> {
-  const posts: BlueskyPost[] = [];
-  const startTime = Date.now();
-  logBluesky(` getFollowsPosts start: ${follows.length} users`);
-
-  try {
-    // Get 1 latest post from each followed account
-    const dids = follows.map((f) => f.did);
-
-    for (let i = 0; i < dids.length; i++) {
-      const did = dids[i];
-      if (i % 10 === 0) {
-        logBluesky(` getFollowsPosts progress: ${i}/${dids.length}, ${Date.now() - startTime}ms`);
-      }
-      const url = new URL(`${PUBLIC_API}/xrpc/app.bsky.feed.getAuthorFeed`);
-      url.searchParams.set('actor', did);
-      url.searchParams.set('limit', '5');
-
-      const res = await fetch(url.toString());
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      for (const item of data.feed || []) {
-        const post = item.post;
-        if (!post?.record?.text) continue;
-
-        // Skip replies and reposts
-        if (item.reply || item.reason) continue;
-
-        // Skip if older than since
-        if (since && post.record.createdAt <= since) continue;
-
-        posts.push({
-          uri: post.uri,
-          cid: post.cid,
-          author: {
-            did: post.author.did,
-            handle: post.author.handle,
-            displayName: post.author.displayName,
-            avatar: post.author.avatar,
-          },
-          text: post.record.text,
-          createdAt: post.record.createdAt,
-        });
-        break; // Only take the first valid post per user
-      }
-    }
-
-    // Sort by createdAt descending
-    posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    logBluesky(` getFollowsPosts done: ${posts.length} posts in ${Date.now() - startTime}ms`);
-    return posts;
-  } catch (e) {
-    console.error('[bluesky] getFollowsPosts error:', e);
-    return [];
   }
 }
 

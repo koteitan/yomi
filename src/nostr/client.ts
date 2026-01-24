@@ -341,7 +341,7 @@ export function subscribeToNotes(
   rxNostr.setDefaultRelays(relays);
 
   let eoseReceived = false;
-  let newestNoteBeforeEose: NoteEvent | null = null;
+  let newestTimestamp = 0; // Track newest note timestamp seen
   let eoseTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const markEoseReceived = () => {
@@ -366,8 +366,8 @@ export function subscribeToNotes(
 
         if (!eoseReceived) {
           // Before EOSE: only keep the newest note
-          if (!newestNoteBeforeEose || note.created_at > newestNoteBeforeEose.created_at) {
-            newestNoteBeforeEose = note;
+          if (note.created_at > newestTimestamp) {
+            newestTimestamp = note.created_at;
             onNote(note, true); // shouldReplace = true
           }
           // Start/reset EOSE timeout (1 second after first event)
@@ -376,8 +376,11 @@ export function subscribeToNotes(
           }
           eoseTimeout = setTimeout(markEoseReceived, 1000);
         } else {
-          // After EOSE: normal behavior
-          onNote(note, false);
+          // After EOSE: only accept notes newer than what we've seen
+          if (note.created_at > newestTimestamp) {
+            newestTimestamp = note.created_at;
+            onNote(note, false);
+          }
         }
       }
     },
