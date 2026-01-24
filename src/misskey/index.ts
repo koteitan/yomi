@@ -160,6 +160,7 @@ export async function getMyProfile(): Promise<MisskeyProfile | null> {
 
 /**
  * Get home timeline
+ * If the fetched note is a renote/reply, wait 1s and fetch the next one
  */
 export async function getTimeline(sinceId?: string): Promise<MisskeyNote[]> {
   if (!accessToken) {
@@ -171,34 +172,50 @@ export async function getTimeline(sinceId?: string): Promise<MisskeyNote[]> {
   const startTime = Date.now();
   logMisskey(' getTimeline start');
 
-  try {
-    const body: Record<string, unknown> = {
-      i: accessToken,
-      limit: 1,
-    };
-    if (sinceId) {
-      body.sinceId = sinceId;
-    }
+  const MAX_ATTEMPTS = 20;
+  let untilId: string | undefined = undefined;
 
-    const res = await fetch(`${MISSKEY_API}/notes/timeline`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      const body: Record<string, unknown> = {
+        i: accessToken,
+        limit: 1,
+      };
+      if (sinceId) {
+        body.sinceId = sinceId;
+      }
+      if (untilId) {
+        body.untilId = untilId;
+      }
 
-    if (!res.ok) {
-      logMisskey(` getTimeline failed: ${res.status}, ${Date.now() - startTime}ms`);
-      return [];
-    }
+      const res = await fetch(`${MISSKEY_API}/notes/timeline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-    logMisskey(` getTimeline fetch done: ${Date.now() - startTime}ms`);
-    const data = await res.json();
-    for (const note of data) {
-      // Skip if no text (e.g., renotes without comment)
-      if (!note.text) continue;
+      if (!res.ok) {
+        logMisskey(` getTimeline failed: ${res.status}, ${Date.now() - startTime}ms`);
+        return notes;
+      }
 
-      // Skip renotes and replies
-      if (note.renoteId || note.replyId) continue;
+      logMisskey(` getTimeline fetch done: ${Date.now() - startTime}ms`);
+      const data = await res.json();
+
+      if (!data || data.length === 0) {
+        logMisskey(` getTimeline: no more notes, ${Date.now() - startTime}ms`);
+        break;
+      }
+
+      const note = data[0];
+
+      // Skip if no text (e.g., renotes without comment) or is renote/reply
+      if (!note.text || note.renoteId || note.replyId) {
+        logMisskey(` getTimeline: skipping renote/reply, waiting 1s (attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
+        untilId = note.id;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
+      }
 
       notes.push({
         id: note.id,
@@ -211,14 +228,17 @@ export async function getTimeline(sinceId?: string): Promise<MisskeyNote[]> {
         text: note.text,
         createdAt: note.createdAt,
       });
-    }
 
-    logMisskey(` getTimeline done: ${notes.length} notes in ${Date.now() - startTime}ms`);
-    return notes;
-  } catch (e) {
-    console.error('[misskey] getTimeline error:', e);
-    return [];
+      logMisskey(` getTimeline done: ${notes.length} notes in ${Date.now() - startTime}ms`);
+      return notes;
+    } catch (e) {
+      console.error('[misskey] getTimeline error:', e);
+      return notes;
+    }
   }
+
+  logMisskey(` getTimeline: max attempts reached, ${Date.now() - startTime}ms`);
+  return notes;
 }
 
 /**

@@ -3,6 +3,7 @@
   margin: 0 auto;
   padding: 20px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
 }
 
 .header {
@@ -330,7 +331,7 @@
 
 .notes-list {
   margin-top: 16px;
-  max-height: 400px;
+  max-height: calc(100vh - 460px);
   overflow-y: auto;
   border: 2px solid #e8e0d8;
   border-radius: 12px;
