@@ -6,6 +6,12 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+commit-msg.txt
+tmp
+yomi-log-*.txt
+
+# SSL certs (auto-generated)
+tools/.certs/
 
 node_modules
 dist
