@@ -13,7 +13,7 @@ import {
   publishReaction,
 } from './nostr';
 import type { Profile } from './nostr';
-import { SpeechManager, processTextForSpeech } from './speech';
+import { SpeechManager, processTextForSpeech, type ReadingTargetOptions } from './speech';
 import { VERSION, GITHUB_URL } from './version';
 import { log, startmon, logNostr, logBluesky, logMisskey, logNostrEvent, logBlueskyEvent, logMisskeyEvent, logReading } from './utils';
 import {
@@ -420,12 +420,18 @@ function App() {
       authorName = authorName.slice(0, 64);
     }
 
+    const readingOptions: ReadingTargetOptions = {
+      readEmoji: configRef.current.readEmoji,
+      readCustomEmoji: configRef.current.readCustomEmoji,
+      readUrl: configRef.current.readUrl,
+    };
     const processedText = processTextForSpeech(
       noteToRead.content,
       profiles,
       t('url'),
       t('imageUrl'),
-      t('nostrAddress')
+      t('nostrAddress'),
+      readingOptions
     );
 
     const fullText = `${authorName}: ${processedText}`;
@@ -1410,6 +1416,34 @@ function App() {
                     max={300}
                   />
                   {t('configSeconds')}
+                </label>
+              </div>
+
+              <div className="config-section">
+                <div className="config-label">{t('configReadingTargets')}</div>
+                <label className="config-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={config.readEmoji}
+                    onChange={(e) => updateConfig({ readEmoji: e.target.checked })}
+                  />
+                  {t('configReadEmoji')}
+                </label>
+                <label className="config-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={config.readCustomEmoji}
+                    onChange={(e) => updateConfig({ readCustomEmoji: e.target.checked })}
+                  />
+                  {t('configReadCustomEmoji')}
+                </label>
+                <label className="config-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={config.readUrl}
+                    onChange={(e) => updateConfig({ readUrl: e.target.checked })}
+                  />
+                  {t('configReadUrl')}
                 </label>
               </div>
 

@@ -12,6 +12,10 @@ export interface Config {
   readingLimitMode: ReadingLimitMode;
   readingLimitSeconds: number;
   volume: number;
+  // Reading targets
+  readEmoji: boolean;
+  readCustomEmoji: boolean;
+  readUrl: boolean;
   // Sources
   sourceNostr: boolean;
   nostrAuthMode: NostrAuthMode;
@@ -34,6 +38,10 @@ export const defaultConfig: Config = {
   readingLimitMode: 'none',
   readingLimitSeconds: 30,
   volume: 1.0,
+  // Reading targets
+  readEmoji: true,
+  readCustomEmoji: true,
+  readUrl: true,
   // Sources
   sourceNostr: true,
   nostrAuthMode: 'nip07',
