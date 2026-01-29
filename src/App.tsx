@@ -29,7 +29,7 @@ import i18n from './i18n';
 import './App.css';
 
 type AppState = 'idle' | 'loading' | 'running' | 'paused';
-type NoteSource = 'nostr' | 'bluesky' | 'misskey';
+type NoteSource = 'nostr' | 'bluesky' | 'misskey' | 'test';
 
 // Pattern for linkifying text (URLs and nostr: addresses)
 const LINK_PATTERN = /(https?:\/\/[^\s]+|nostr:n(?:pub|sec|profile|event|ote|addr|relay)1[a-z0-9]+)/gi;
@@ -401,6 +401,8 @@ function App() {
       authorName = noteToRead.authorName || t('blueskyAddress');
     } else if (noteToRead.source === 'misskey') {
       authorName = noteToRead.authorName || t('misskeyAddress');
+    } else if (noteToRead.source === 'test') {
+      authorName = noteToRead.authorName || 'Test';
     } else {
       const authorProfile = profiles.get(noteToRead.pubkey);
       authorName = authorProfile?.display_name || authorProfile?.name || t('nostrAddress');
@@ -574,6 +576,60 @@ function App() {
       }
     }
   }, []);
+
+  // Test post function for debugging - exposed to window.testpost()
+  const testpost = useCallback((content: string, authorName: string = 'Test') => {
+    const note: NoteWithRead = {
+      id: `test-${Date.now()}`,
+      pubkey: 'test-pubkey',
+      content,
+      created_at: Math.floor(Date.now() / 1000),
+      read: false,
+      source: 'test',
+      authorName,
+    };
+
+    log(`[test] adding test post: ${authorName}: ${content.slice(0, 50)}...`);
+
+    let newNotes = [note, ...notesRef.current];
+    newNotes.sort((a, b) => b.created_at - a.created_at);
+    if (newNotes.length > 200) {
+      newNotes = newNotes.slice(0, 200);
+    }
+    notesRef.current = newNotes;
+    setNotes(newNotes);
+
+    // Start processing if running
+    if (appStateRef.current === 'running' && !isProcessingRef.current) {
+      processNextNote();
+    }
+  }, [processNextNote]);
+
+  // Expose debug functions to window for console debugging
+  useEffect(() => {
+    const win = window as unknown as {
+      testpost?: typeof testpost;
+      help?: () => void;
+    };
+    win.testpost = testpost;
+    win.help = () => {
+      console.log(`
+=== yomi debug functions ===
+testpost(content, authorName?)  - Add a test post to the queue
+  content: string     - Text content to read (required)
+  authorName: string  - Author name (default: "Test")
+  Example: testpost("Hello world!")
+  Example: testpost("Test message", "Alice")
+
+help()  - Show this help message
+================================
+      `.trim());
+    };
+    return () => {
+      delete win.testpost;
+      delete win.help;
+    };
+  }, [testpost]);
 
   const handleStart = async () => {
     // Unlock speech on iOS (must be called on user interaction)
@@ -1118,7 +1174,7 @@ function App() {
           {notes.map((note) => {
             let name: string;
             let displayName: string;
-            if (note.source === 'bluesky' || note.source === 'misskey') {
+            if (note.source === 'bluesky' || note.source === 'misskey' || note.source === 'test') {
               name = '';
               displayName = note.authorName || '';
             } else {

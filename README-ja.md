@@ -117,6 +117,51 @@ npm run dev
 ```
 ブラウザで http://localhost:5173 を開いてください。
 
+### アーキテクチャ
+投稿取得から読み上げまでのフロー:
+
+```mermaid
+flowchart TB
+    subgraph Sources["投稿取得"]
+        Nostr["Nostr<br/>subscribeToNotes()"]
+        Bluesky["Bluesky<br/>getTimeline()"]
+        Misskey["Misskey<br/>subscribeToTimeline()"]
+        Test["Test<br/>window.testpost()"]
+    end
+
+    subgraph Queue["キュー管理"]
+        NoteWithRead["NoteWithRead<br/>{id, pubkey, content,<br/>created_at, read, source}"]
+        NotesRef["notesRef / setNotes"]
+    end
+
+    subgraph Processing["読み上げ処理 (processNextNote)"]
+        FindUnread["未読ノートを古い順に取得"]
+        MarkRead["read: true にマーク"]
+        FormatAuthor["著者名を整形<br/>(絵文字削除など)"]
+        ProcessText["processTextForSpeech()<br/>(絵文字/URL/Nostrアドレス処理)"]
+        BuildText["fullText =<br/>authorName + content"]
+    end
+
+    subgraph Speech["音声合成"]
+        SpeechManager["speechManager.speak()"]
+        WebSpeechAPI["Web Speech API"]
+    end
+
+    Nostr --> NoteWithRead
+    Bluesky --> NoteWithRead
+    Misskey --> NoteWithRead
+    Test --> NoteWithRead
+    NoteWithRead --> NotesRef
+    NotesRef --> FindUnread
+    FindUnread --> MarkRead
+    MarkRead --> FormatAuthor
+    FormatAuthor --> ProcessText
+    ProcessText --> BuildText
+    BuildText --> SpeechManager
+    SpeechManager --> WebSpeechAPI
+    WebSpeechAPI -->|onEnd| FindUnread
+```
+
 ### WebSocketデバッグモード
 リモートデバッグ用に、すべてのコンソール出力をWebSocketサーバーに転送します。
 

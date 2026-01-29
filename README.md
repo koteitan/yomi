@@ -117,6 +117,51 @@ npm run dev
 ```
 Open http://localhost:5173 in your browser.
 
+### Architecture
+Flow from fetching posts to speech synthesis:
+
+```mermaid
+flowchart TB
+    subgraph Sources["Post Fetching"]
+        Nostr["Nostr<br/>subscribeToNotes()"]
+        Bluesky["Bluesky<br/>getTimeline()"]
+        Misskey["Misskey<br/>subscribeToTimeline()"]
+        Test["Test<br/>window.testpost()"]
+    end
+
+    subgraph Queue["Queue Management"]
+        NoteWithRead["NoteWithRead<br/>{id, pubkey, content,<br/>created_at, read, source}"]
+        NotesRef["notesRef / setNotes"]
+    end
+
+    subgraph Processing["Reading Process (processNextNote)"]
+        FindUnread["Find oldest unread note"]
+        MarkRead["Mark as read: true"]
+        FormatAuthor["Format author name<br/>(remove emoji, etc.)"]
+        ProcessText["processTextForSpeech()<br/>(handle emoji/URL/Nostr address)"]
+        BuildText["fullText =<br/>authorName + content"]
+    end
+
+    subgraph Speech["Speech Synthesis"]
+        SpeechManager["speechManager.speak()"]
+        WebSpeechAPI["Web Speech API"]
+    end
+
+    Nostr --> NoteWithRead
+    Bluesky --> NoteWithRead
+    Misskey --> NoteWithRead
+    Test --> NoteWithRead
+    NoteWithRead --> NotesRef
+    NotesRef --> FindUnread
+    FindUnread --> MarkRead
+    MarkRead --> FormatAuthor
+    FormatAuthor --> ProcessText
+    ProcessText --> BuildText
+    BuildText --> SpeechManager
+    SpeechManager --> WebSpeechAPI
+    WebSpeechAPI -->|onEnd| FindUnread
+```
+
 ### WebSocket Debug Mode
 Forward all console output to a WebSocket server for remote debugging.
 
