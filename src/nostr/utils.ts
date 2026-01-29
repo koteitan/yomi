@@ -1,11 +1,11 @@
-import { nip19 } from 'nostr-tools';
+import { npubEncode, neventEncode, nip19Decode } from './bech32';
 
 export function hexToNpub(hex: string): string {
-  return nip19.npubEncode(hex);
+  return npubEncode(hex);
 }
 
 export function hexToNevent(eventId: string): string {
-  return nip19.neventEncode({ id: eventId });
+  return neventEncode({ id: eventId });
 }
 
 export function parseHexOrNpub(input: string): string | null {
@@ -18,13 +18,9 @@ export function parseHexOrNpub(input: string): string | null {
 
   // Try to decode as npub
   if (trimmed.startsWith('npub1')) {
-    try {
-      const decoded = nip19.decode(trimmed);
-      if (decoded.type === 'npub') {
-        return decoded.data;
-      }
-    } catch {
-      return null;
+    const decoded = nip19Decode(trimmed);
+    if (decoded && decoded.type === 'npub') {
+      return decoded.data;
     }
   }
 
