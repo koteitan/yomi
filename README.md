@@ -1,7 +1,7 @@
 English | [Japanese](README-ja.md)
 
-# yomi - Nostr/Bluesky/Misskey.io TTS Reading Client
-A [Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://misskey.io) client that reads out posts using text-to-speech.
+# yomi - Nostr/Bluesky/Misskey.io/Discord TTS Reading Client
+A [Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://misskey.io)/Discord client that reads out posts using text-to-speech.
 
 ## For Users
 ### Usage
@@ -9,6 +9,12 @@ A [Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://
    - **Nostr**: Use NIP-07 extension ([nos2x](https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp) for Chrome, [nos2x-fox](https://addons.mozilla.org/firefox/addon/nos2x-fox/) for Firefox) or enter pubkey manually
    - **Bluesky**: Settings > Privacy and Security > [App Passwords](https://bsky.app/settings/app-passwords) > Enter handle and app password
    - **Misskey\.io**: Settings > [Service integration](https://misskey.io/settings/connect) > Generate access token
+   - **Discord**: Create a Discord Bot (see [discord-bot/README.md](discord-bot/README.md)) > Launch the bot with your token and channel ID > Enter WebSocket URL in yomi settings
+     ```bash
+     cd discord-bot
+     npm install
+     node bot.cjs --token <BOT_TOKEN> --channel <CHANNEL_ID>
+     ```
 2. Open [yomi](https://koteitan.github.io/yomi) in your browser
 3. Click the gear icon to open the config dialog
 4. Click "Start" to begin reading posts from your follows
@@ -126,6 +132,7 @@ flowchart TB
         Nostr["Nostr<br/>subscribeToNotes()"]
         Bluesky["Bluesky<br/>getTimeline()"]
         Misskey["Misskey<br/>subscribeToTimeline()"]
+        Discord["Discord<br/>connectStream()"]
         Test["Test<br/>window.testpost()"]
     end
 
@@ -150,6 +157,7 @@ flowchart TB
     Nostr --> NoteWithRead
     Bluesky --> NoteWithRead
     Misskey --> NoteWithRead
+    Discord --> NoteWithRead
     Test --> NoteWithRead
     NoteWithRead --> NotesRef
     NotesRef --> FindUnread

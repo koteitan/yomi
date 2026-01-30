@@ -402,6 +402,8 @@ function App() {
       authorName = noteToRead.authorName || t('blueskyAddress');
     } else if (noteToRead.source === 'misskey') {
       authorName = noteToRead.authorName || t('misskeyAddress');
+    } else if (noteToRead.source === 'discord') {
+      authorName = noteToRead.authorName || 'Discord';
     } else if (noteToRead.source === 'test') {
       authorName = noteToRead.authorName || 'Test';
     } else {

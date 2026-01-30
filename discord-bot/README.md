@@ -1,76 +1,80 @@
 # yomi Discord Bot
 
-yomiにDiscordチャンネルのメッセージを読み上げさせるためのBotです。
+A bot that forwards Discord channel messages to yomi for text-to-speech reading.
 
-## セットアップ
+## Setup
 
-### 1. Discord Developer Portalでアプリを作成
+### 1. Create a Discord Application
 
-1. [Discord Developer Portal](https://discord.com/developers/applications) にアクセス
-2. "New Application" をクリック
-3. アプリ名を入力（例: "yomi Bot"）して作成
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Click **New Application**
+3. Enter an app name (e.g., "yomi Bot") and click **Create**
 
-### 2. Botを作成してトークンを取得
+### 2. Create Bot and Get Token
 
-1. 左メニューから "Bot" を選択
-2. "Reset Token" をクリックしてトークンをコピー（**このトークンは秘密にしてください**）
-3. **MESSAGE CONTENT INTENT** を有効にする（重要！）
-   - "Privileged Gateway Intents" セクションで "MESSAGE CONTENT INTENT" をONにする
+1. Select **Bot** from the left menu
+2. Click **Reset Token** and copy the token (**keep this secret!**)
+3. Enable **MESSAGE CONTENT INTENT** (important!)
+   - Scroll down to "Privileged Gateway Intents" section
+   - Turn ON "MESSAGE CONTENT INTENT"
+4. Click **Save Changes**
 
-### 3. Botをサーバーに招待
+### 3. Invite Bot to Your Server
 
-1. 左メニューから "OAuth2" → "URL Generator" を選択
-2. SCOPES: `bot` を選択
-3. BOT PERMISSIONS: `Read Messages/View Channels`, `Read Message History` を選択
-4. 生成されたURLをコピーしてブラウザで開く
-5. Botを追加したいサーバーを選択して招待
+1. Select **OAuth2** > **URL Generator** from the left menu
+2. Under SCOPES, check `bot`
+3. Under BOT PERMISSIONS, check:
+   - `Read Messages/View Channels`
+   - `Read Message History`
+4. Copy the generated URL at the bottom and open it in your browser
+5. Select the server you want to add the bot to and authorize
 
-### 4. チャンネルIDを取得
+### 4. Get Channel ID
 
-1. Discordの設定で「開発者モード」を有効にする
-   - ユーザー設定 → アプリの設定 → 詳細設定 → 開発者モード
-2. 読み上げたいチャンネルを右クリック
-3. "チャンネルIDをコピー" を選択
+1. Enable Developer Mode in Discord
+   - User Settings > App Settings > Advanced > Developer Mode (ON)
+2. Right-click the channel you want to read from
+3. Click **Copy Channel ID**
 
-## 起動
+## Run the Bot
 
 ```bash
 cd discord-bot
 npm install
-node bot.cjs --token YOUR_BOT_TOKEN --channel CHANNEL_ID
+node bot.cjs --token <BOT_TOKEN> --channel <CHANNEL_ID>
 ```
 
-### オプション
+### Options
 
-| オプション | 説明 | デフォルト |
-|-----------|------|-----------|
-| `--token` | Discord Botトークン（必須） | - |
-| `--channel` | 監視するチャンネルID（必須） | - |
-| `--port` | WebSocketサーバーポート | 8765 |
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--token` | Discord Bot token (required) | - |
+| `--channel` | Channel ID to monitor (required) | - |
+| `--port` | WebSocket server port | 8765 |
 
-### 例
+### Example
 
 ```bash
 node bot.cjs --token MTIz... --channel 123456789012345678 --port 8765
 ```
 
-## yomiでの設定
+## Configure yomi
 
-1. yomiの設定画面を開く
-2. "Discord" を有効にする
-3. Bot URL に `ws://localhost:8765` を入力（デフォルト）
-4. "Start" を押して読み上げ開始
+1. Open yomi settings (gear icon)
+2. Enable **Discord** checkbox
+3. Enter Bot URL: `ws://localhost:8765` (default)
+4. Click **Start** to begin reading
 
-## トラブルシューティング
+## Troubleshooting
 
-### メッセージが届かない
+### Messages not arriving
 
-- Botがサーバーに参加しているか確認
-- Botにチャンネルの閲覧権限があるか確認
-- MESSAGE CONTENT INTENTが有効になっているか確認
-- チャンネルIDが正しいか確認
+- Verify the bot has joined your server
+- Check bot has permission to view the channel
+- Confirm MESSAGE CONTENT INTENT is enabled in Developer Portal
+- Verify the channel ID is correct
 
-### 接続エラー
+### Connection errors
 
-- Botトークンが正しいか確認
-- ファイアウォールでWebSocketポートがブロックされていないか確認
+- Check the bot token is correct
+- Ensure the WebSocket port is not blocked by firewall
