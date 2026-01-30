@@ -499,9 +499,16 @@
   height: 0.88em;
 }
 
+.icon-discord {
+  fill: #B89F8A;
+  width: 0.88em;
+  height: 0.88em;
+}
+
 .note-source:hover .icon-nostr,
 .note-source:hover .icon-bluesky,
-.note-source:hover .icon-misskey {
+.note-source:hover .icon-misskey,
+.note-source:hover .icon-discord {
   fill: #8a7d72;
 }
 
@@ -708,6 +715,14 @@
 }
 
 .config-misskey-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 24px;
+  margin-top: 4px;
+}
+
+.config-discord-inputs {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1133,13 +1148,15 @@
 
 .dark .icon-nostr,
 .dark .icon-bluesky,
-.dark .icon-misskey {
+.dark .icon-misskey,
+.dark .icon-discord {
   fill: #cc7000;
 }
 
 .dark .note-source:hover .icon-nostr,
 .dark .note-source:hover .icon-bluesky,
-.dark .note-source:hover .icon-misskey {
+.dark .note-source:hover .icon-misskey,
+.dark .note-source:hover .icon-discord {
   fill: #ff8c00;
 }
 

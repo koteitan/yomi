@@ -15,7 +15,7 @@ import {
 import type { Profile } from './nostr';
 import { SpeechManager, processTextForSpeech, type ReadingTargetOptions } from './speech';
 import { VERSION, GITHUB_URL } from './version';
-import { log, startmon, logNostr, logBluesky, logMisskey, logNostrEvent, logBlueskyEvent, logMisskeyEvent, logReading } from './utils';
+import { log, startmon, logNostr, logBluesky, logMisskey, logDiscord, logNostrEvent, logBlueskyEvent, logMisskeyEvent, logDiscordEvent, logReading } from './utils';
 import {
   type Config,
   loadConfig,
@@ -25,11 +25,12 @@ import {
 import { detectLanguage, updateAuthorLanguage, getAuthorLanguage } from './config/langDetect';
 import * as bluesky from './bluesky';
 import * as misskey from './misskey';
+import * as discord from './discord';
 import i18n from './i18n';
 import './App.css';
 
 type AppState = 'idle' | 'loading' | 'running' | 'paused';
-type NoteSource = 'nostr' | 'bluesky' | 'misskey' | 'test';
+type NoteSource = 'nostr' | 'bluesky' | 'misskey' | 'discord' | 'test';
 
 // Pattern for linkifying text (URLs and nostr: addresses)
 const LINK_PATTERN = /(https?:\/\/[^\s]+|nostr:n(?:pub|sec|profile|event|ote|addr|relay)1[a-z0-9]+)/gi;
@@ -577,6 +578,52 @@ function App() {
     }
   }, []);
 
+  const addDiscordMessages = useCallback((messages: discord.DiscordMessage[], isInitial: boolean = false) => {
+    if (messages.length === 0) return;
+
+    // For initial load, only keep the most recent message
+    const messagesToAdd = isInitial ? [messages[0]] : messages;
+
+    for (const message of messagesToAdd) {
+      // Skip if already exists or no content
+      if (!message.content || notesRef.current.some((n) => n.id === message.id)) {
+        continue;
+      }
+
+      const noteWithRead: NoteWithRead = {
+        id: message.id,
+        pubkey: message.author.id,
+        content: message.content,
+        created_at: Math.floor(new Date(message.timestamp).getTime() / 1000),
+        read: false,
+        source: 'discord',
+        authorName: message.author.displayName,
+        authorAvatar: message.author.avatarUrl || undefined,
+      };
+
+      // Update author language data
+      updateAuthorLanguage(message.author.id, message.content);
+      logDiscordEvent(message.timestamp, message.author.displayName, message.content);
+
+      // Add to notes and sort by created_at
+      let newNotes = [noteWithRead, ...notesRef.current];
+      newNotes.sort((a, b) => b.created_at - a.created_at);
+      // Keep only first 200 notes (newest)
+      if (newNotes.length > 200) {
+        newNotes = newNotes.slice(0, 200);
+      }
+      notesRef.current = newNotes;
+      setNotes(newNotes);
+
+      // Start running immediately when first note arrives (don't wait for all sources)
+      if (appStateRef.current === 'loading') {
+        log('[app] running!');
+        appStateRef.current = 'running'; // Update ref immediately (state is async)
+        setAppState('running');
+      }
+    }
+  }, []);
+
   // Test post function for debugging - exposed to window.testpost()
   const testpost = useCallback((content: string, authorName: string = 'Test') => {
     const note: NoteWithRead = {
@@ -768,9 +815,23 @@ help()  - Show this help message
       return true;
     };
 
+    // Discord source initialization
+    const initDiscord = async (): Promise<boolean> => {
+      if (!config.sourceDiscord || !config.discordBotUrl) return false;
+
+      logDiscord('connecting to bot at', config.discordBotUrl);
+      discord.connectStream(config.discordBotUrl, (message) => {
+        if (appStateRef.current !== 'running') return;
+        logDiscord('stream message:', message.author.displayName);
+        addDiscordMessages([message], false);
+      });
+
+      return true;
+    };
+
     try {
       // Run all sources in parallel
-      const results = await Promise.allSettled([initNostr(), initBluesky(), initMisskey()]);
+      const results = await Promise.allSettled([initNostr(), initBluesky(), initMisskey(), initDiscord()]);
 
       const hasAnySource = results.some(
         (r) => r.status === 'fulfilled' && r.value === true
@@ -892,6 +953,8 @@ help()  - Show this help message
     blueskyLastFetchRef.current = undefined;
     // Stop Misskey streaming
     misskey.disconnectStream();
+    // Stop Discord streaming
+    discord.disconnectStream();
     setAppState('idle');
     notesRef.current = [];
     setNotes([]);
@@ -1073,7 +1136,8 @@ help()  - Show this help message
               disabled={
                 (config.sourceNostr && !getNostrPubkey()) &&
                 (config.sourceBluesky && !config.blueskyHandle) &&
-                (config.sourceMisskey && !config.misskeyAccessToken)
+                (config.sourceMisskey && !config.misskeyAccessToken) &&
+                (config.sourceDiscord && !config.discordBotUrl)
               }
               className="btn btn-start"
             >
@@ -1174,7 +1238,7 @@ help()  - Show this help message
           {notes.map((note) => {
             let name: string;
             let displayName: string;
-            if (note.source === 'bluesky' || note.source === 'misskey' || note.source === 'test') {
+            if (note.source === 'bluesky' || note.source === 'misskey' || note.source === 'discord' || note.source === 'test') {
               name = '';
               displayName = note.authorName || '';
             } else {
@@ -1203,7 +1267,7 @@ help()  - Show this help message
                   <button
                     className="note-action-btn note-source"
                     onClick={() => handleOpenFeed(note)}
-                    title={note.source === 'nostr' ? 'Open in Nostr' : note.source === 'bluesky' ? 'Open in Bluesky' : 'Open in Misskey'}
+                    title={note.source === 'nostr' ? 'Open in Nostr' : note.source === 'bluesky' ? 'Open in Bluesky' : note.source === 'misskey' ? 'Open in Misskey' : 'Discord'}
                   >
                     {note.source === 'nostr' ? (
                       <svg viewBox="971 163 1062 1239" className="icon-nostr">
@@ -1212,6 +1276,10 @@ help()  - Show this help message
                     ) : note.source === 'bluesky' ? (
                       <svg viewBox="0 0 24 24" className="icon-bluesky">
                         <path d="M5.202 2.857C7.954 4.922 10.913 9.11 12 11.358c1.087-2.247 4.046-6.436 6.798-8.501C20.783 1.366 24 .213 24 3.883c0 .732-.42 6.156-.667 7.037-.856 3.061-3.978 3.842-6.755 3.37 4.854.826 6.089 3.562 3.422 6.299-5.065 5.196-7.28-1.304-7.847-2.97-.104-.305-.152-.448-.153-.327 0-.121-.05.022-.153.327-.568 1.666-2.782 8.166-7.847 2.97-2.667-2.737-1.432-5.473 3.422-6.3-2.777.473-5.899-.308-6.755-3.369C.42 10.04 0 4.615 0 3.883c0-3.67 3.217-2.517 5.202-1.026Z" />
+                      </svg>
+                    ) : note.source === 'discord' ? (
+                      <svg viewBox="0 0 24 24" className="icon-discord">
+                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
                       </svg>
                     ) : (
                       <svg viewBox="0 0 160 160" className="icon-misskey">
@@ -1386,6 +1454,25 @@ help()  - Show this help message
                       placeholder={t('misskeyAccessTokenPlaceholder')}
                       value={config.misskeyAccessToken}
                       onChange={(e) => updateConfig({ misskeyAccessToken: e.target.value })}
+                    />
+                  </div>
+                )}
+                <label className="config-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={config.sourceDiscord}
+                    onChange={(e) => updateConfig({ sourceDiscord: e.target.checked })}
+                  />
+                  {t('sourceDiscord')}
+                </label>
+                {config.sourceDiscord && (
+                  <div className="config-discord-inputs">
+                    <input
+                      type="text"
+                      className="config-input-text"
+                      placeholder={t('discordBotUrlPlaceholder')}
+                      value={config.discordBotUrl}
+                      onChange={(e) => updateConfig({ discordBotUrl: e.target.value })}
                     />
                   </div>
                 )}

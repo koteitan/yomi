@@ -25,6 +25,8 @@ export interface Config {
   blueskyAppKey: string;
   sourceMisskey: boolean;
   misskeyAccessToken: string;
+  sourceDiscord: boolean;
+  discordBotUrl: string;
   theme: ThemeMode;
 }
 
@@ -51,6 +53,8 @@ export const defaultConfig: Config = {
   blueskyAppKey: '',
   sourceMisskey: false,
   misskeyAccessToken: '',
+  sourceDiscord: false,
+  discordBotUrl: 'ws://localhost:8765',
   theme: 'light',
 };
 

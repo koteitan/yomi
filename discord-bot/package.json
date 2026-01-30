@@ -1,0 +1,13 @@
+{
+  "name": "yomi-discord-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for yomi - bridges Discord messages to yomi via WebSocket",
+  "main": "bot.cjs",
+  "scripts": {
+    "start": "node bot.cjs"
+  },
+  "dependencies": {
+    "discord.js": "^14.18.0",
+    "ws": "^8.18.0"
+  }
+}
