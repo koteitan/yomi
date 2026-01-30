@@ -2,6 +2,53 @@
 
 A bot that forwards Discord channel messages to yomi for text-to-speech reading.
 
+## Architecture
+
+### Block Diagram
+
+```mermaid
+flowchart LR
+    User["User posts message"]
+    Discord["Discord Server"]
+
+    subgraph PC["Your PC"]
+        Bot["Discord Bot<br/>(Node.js)"]
+        WS["WebSocket<br/>localhost:8765"]
+        Yomi["yomi<br/>(Browser)"]
+        TTS["Text-to-Speech"]
+    end
+
+    User --> Discord
+    Discord --> Bot
+    Bot --> WS
+    WS --> Yomi
+    Yomi --> TTS
+```
+
+### Communication Chart
+
+```mermaid
+sequenceDiagram
+    participant User as Discord User
+    participant Discord as Discord Server
+    participant Bot as Discord Bot
+    participant Yomi as yomi (Browser)
+
+    Note over Bot: node bot.cjs
+    Bot->>Discord: Login
+    Discord-->>Bot: Ready
+    Bot->>Bot: WebSocket listen on :8765
+
+    Note over Yomi: Click Start
+    Yomi->>Bot: WebSocket connect
+    Bot-->>Yomi: Connection established
+
+    User->>Discord: Post message
+    Discord->>Bot: messageCreate event
+    Bot->>Yomi: WebSocket message
+    Yomi->>Yomi: Text-to-Speech
+```
+
 ## Setup
 
 ### 1. Create a Discord Application
