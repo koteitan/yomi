@@ -505,10 +505,17 @@
   height: 0.88em;
 }
 
+.icon-x {
+  fill: #B89F8A;
+  width: 0.88em;
+  height: 0.88em;
+}
+
 .note-source:hover .icon-nostr,
 .note-source:hover .icon-bluesky,
 .note-source:hover .icon-misskey,
-.note-source:hover .icon-discord {
+.note-source:hover .icon-discord,
+.note-source:hover .icon-x {
   fill: #8a7d72;
 }
 
@@ -1149,14 +1156,16 @@
 .dark .icon-nostr,
 .dark .icon-bluesky,
 .dark .icon-misskey,
-.dark .icon-discord {
+.dark .icon-discord,
+.dark .icon-x {
   fill: #cc7000;
 }
 
 .dark .note-source:hover .icon-nostr,
 .dark .note-source:hover .icon-bluesky,
 .dark .note-source:hover .icon-misskey,
-.dark .note-source:hover .icon-discord {
+.dark .note-source:hover .icon-discord,
+.dark .note-source:hover .icon-x {
   fill: #ff8c00;
 }
 

@@ -1,7 +1,7 @@
 English | [Japanese](README-ja.md)
 
-# yomi - Nostr/Bluesky/Misskey.io/Discord TTS Reading Client
-A [Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://misskey.io)/Discord client that reads out posts using text-to-speech.
+# yomi - Nostr/Bluesky/Misskey.io/Discord/X TTS Reading Client
+A [Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://misskey.io)/[Discord](https://discord.com)/[X](https://x.com) client that reads out posts using text-to-speech.
 
 ## For Users
 ### Usage
@@ -15,6 +15,7 @@ A [Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://
      npm install
      node bot.cjs --token <BOT_TOKEN> --channel <CHANNEL_ID>
      ```
+   - **X/Twitter**: Get Client ID from X Developer Portal (see [how-to-get-client-id-of-x.md](how-to-get-client-id-of-x.md)) > Enter Client ID > Click "Authenticate" > Select timeline type (List or Home)
 2. Open [yomi](https://koteitan.github.io/yomi) in your browser
 3. Click the gear icon to open the config dialog
 4. Click "Start" to begin reading posts from your follows
@@ -133,6 +134,7 @@ flowchart TB
         Bluesky["Bluesky<br/>getTimeline()"]
         Misskey["Misskey<br/>subscribeToTimeline()"]
         Discord["Discord<br/>connectStream()"]
+        Twitter["X/Twitter<br/>getListTweets() / getHomeTimeline()"]
         Test["Test<br/>window.testpost()"]
     end
 
@@ -158,6 +160,7 @@ flowchart TB
     Bluesky --> NoteWithRead
     Misskey --> NoteWithRead
     Discord --> NoteWithRead
+    Twitter --> NoteWithRead
     Test --> NoteWithRead
     NoteWithRead --> NotesRef
     NotesRef --> FindUnread

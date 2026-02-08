@@ -1,7 +1,7 @@
 [English](README.md) | Japanese
 
-# yomi - Nostr/Bluesky/Misskey.io 音声読み上げクライアント
-[Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://misskey.io)の投稿を音声で読み上げるクライアントです。
+# yomi - Nostr/Bluesky/Misskey.io/Discord/X 音声読み上げクライアント
+[Nostr](https://nostter.app)/[Bluesky](https://bsky.app)/[Misskey.io](https://misskey.io)/[Discord](https://discord.com)/[X](https://x.com)の投稿を音声で読み上げるクライアントです。
 
 ## ユーザー向け
 ### 使い方
@@ -9,6 +9,13 @@
    - **Nostr**: NIP-07拡張機能（Chrome: [nos2x](https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgmejjdanjjp)、Firefox: [nos2x-fox](https://addons.mozilla.org/firefox/addon/nos2x-fox/)）またはpubkeyを手動入力
    - **Bluesky**: 設定 > プライバシーとセキュリティ > [アプリパスワード](https://bsky.app/settings/app-passwords) > ハンドルとアプリパスワードを入力
    - **Misskey\.io**: 設定 > サービス連携 > [アクセストークンの発行](https://misskey.io/settings/connect)
+   - **Discord**: Discord Botを作成（[discord-bot/README.md](discord-bot/README.md)参照） > トークンとチャンネルIDでBotを起動 > yomi設定にWebSocket URLを入力
+     ```bash
+     cd discord-bot
+     npm install
+     node bot.cjs --token <BOT_TOKEN> --channel <CHANNEL_ID>
+     ```
+   - **X/Twitter**: X Developer PortalでClient IDを取得（[how-to-get-client-id-of-x.md](how-to-get-client-id-of-x.md)参照） > Client IDを入力 > 「認証」をクリック > タイムラインタイプを選択（リストまたはホーム）
 2. ブラウザで[yomi](https://koteitan.github.io/yomi)を開く
 3. 歯車アイコンをクリックして設定ダイアログを開く
 4. 「開始」をクリックして、フォローしているユーザーの投稿の読み上げを開始
@@ -126,6 +133,8 @@ flowchart TB
         Nostr["Nostr<br/>subscribeToNotes()"]
         Bluesky["Bluesky<br/>getTimeline()"]
         Misskey["Misskey<br/>subscribeToTimeline()"]
+        Discord["Discord<br/>connectStream()"]
+        Twitter["X/Twitter<br/>getListTweets() / getHomeTimeline()"]
         Test["Test<br/>window.testpost()"]
     end
 
@@ -150,6 +159,8 @@ flowchart TB
     Nostr --> NoteWithRead
     Bluesky --> NoteWithRead
     Misskey --> NoteWithRead
+    Discord --> NoteWithRead
+    Twitter --> NoteWithRead
     Test --> NoteWithRead
     NoteWithRead --> NotesRef
     NotesRef --> FindUnread
