@@ -1,7 +1,9 @@
 import { logTwitter } from '../utils';
 
-// Use proxy in development to avoid CORS issues
-const X_API = import.meta.env.DEV ? '/x-api' : 'https://api.x.com';
+// Use Vite proxy in dev, CORS proxy worker in production (configurable via VITE_X_API_PROXY_URL)
+const X_API = import.meta.env.DEV
+  ? '/x-api'
+  : (import.meta.env.VITE_X_API_PROXY_URL || 'https://api.x.com');
 
 // ============================================
 // Interfaces

@@ -173,6 +173,21 @@ flowchart TB
     WebSpeechAPI -->|onEnd| FindUnread
 ```
 
+### X API CORSプロキシ
+本番環境（GitHub Pages）では、`api.x.com`がCORSヘッダーを返さないため、X/Twitter APIコールにCORSプロキシが必要です。
+
+Cloudflare Workerプロキシが`x-api-proxy/`に用意されています。デプロイ手順は[x-api-proxy/README.md](x-api-proxy/README.md)を参照してください。
+
+プロキシURLは`.env.production`の`VITE_X_API_PROXY_URL`環境変数で設定します：
+
+```bash
+# プロキシを有効化（デフォルト）
+VITE_X_API_PROXY_URL=https://x-api-proxy.<account>.workers.dev
+
+# プロキシを無効化（直接APIアクセス、GitHub PagesではCORSエラーになります）
+VITE_X_API_PROXY_URL=
+```
+
 ### WebSocketデバッグモード
 リモートデバッグ用に、すべてのコンソール出力をWebSocketサーバーに転送します。
 

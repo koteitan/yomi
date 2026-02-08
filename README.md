@@ -173,6 +173,21 @@ flowchart TB
     WebSpeechAPI -->|onEnd| FindUnread
 ```
 
+### X API CORS Proxy
+In production (GitHub Pages), X/Twitter API calls require a CORS proxy since `api.x.com` does not return CORS headers.
+
+A Cloudflare Worker proxy is provided in `x-api-proxy/`. See [x-api-proxy/README.md](x-api-proxy/README.md) for deploy instructions.
+
+The proxy URL is configured via the `VITE_X_API_PROXY_URL` environment variable in `.env.production`:
+
+```bash
+# Enable proxy (default)
+VITE_X_API_PROXY_URL=https://x-api-proxy.<account>.workers.dev
+
+# Disable proxy (direct API access, will fail with CORS on GitHub Pages)
+VITE_X_API_PROXY_URL=
+```
+
 ### WebSocket Debug Mode
 Forward all console output to a WebSocket server for remote debugging.
 
