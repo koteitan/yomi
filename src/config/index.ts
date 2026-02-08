@@ -27,6 +27,10 @@ export interface Config {
   misskeyAccessToken: string;
   sourceDiscord: boolean;
   discordBotUrl: string;
+  sourceTwitter: boolean;
+  twitterClientId: string;
+  twitterTimelineType: 'list' | 'home';
+  twitterListId: string;
   theme: ThemeMode;
 }
 
@@ -55,6 +59,10 @@ export const defaultConfig: Config = {
   misskeyAccessToken: '',
   sourceDiscord: false,
   discordBotUrl: 'ws://localhost:8765',
+  sourceTwitter: false,
+  twitterClientId: '',
+  twitterTimelineType: 'list' as const,
+  twitterListId: '',
   theme: 'light',
 };
 

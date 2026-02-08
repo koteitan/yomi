@@ -32,6 +32,12 @@ export function logDiscord(...args: unknown[]): void {
   }
 }
 
+export function logTwitter(...args: unknown[]): void {
+  if (eventLogEnabled) {
+    console.log('[twitter]', ...args);
+  }
+}
+
 export function logNostrEvent(createdAt: number, authorName: string, content: string): void {
   if (eventLogEnabled) {
     const datetime = formatDateTime(createdAt);
@@ -61,6 +67,14 @@ export function logDiscordEvent(createdAt: string, authorName: string, content: 
     const datetime = formatDateTimeFromISO(createdAt);
     const truncatedContent = content.length > 50 ? content.slice(0, 50) + '...' : content;
     console.log(`[discord-event] ${datetime} ${authorName}: ${truncatedContent}`);
+  }
+}
+
+export function logTwitterEvent(createdAt: string, authorName: string, content: string): void {
+  if (eventLogEnabled) {
+    const datetime = formatDateTimeFromISO(createdAt);
+    const truncatedContent = content.length > 50 ? content.slice(0, 50) + '...' : content;
+    console.log(`[twitter-event] ${datetime} ${authorName}: ${truncatedContent}`);
   }
 }
 

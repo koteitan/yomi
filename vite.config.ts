@@ -21,6 +21,12 @@ export default defineConfig({
           'Referer': 'https://misskey.io/',
         },
       },
+      '/x-api': {
+        target: 'https://api.x.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/x-api/, ''),
+        secure: true,
+      },
     },
   },
 })

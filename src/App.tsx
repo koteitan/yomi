@@ -15,7 +15,7 @@ import {
 import type { Profile } from './nostr';
 import { SpeechManager, processTextForSpeech, type ReadingTargetOptions } from './speech';
 import { VERSION, GITHUB_URL } from './version';
-import { log, startmon, logNostr, logBluesky, logMisskey, logDiscord, logNostrEvent, logBlueskyEvent, logMisskeyEvent, logDiscordEvent, logReading } from './utils';
+import { log, startmon, logNostr, logBluesky, logMisskey, logDiscord, logTwitter, logNostrEvent, logBlueskyEvent, logMisskeyEvent, logDiscordEvent, logTwitterEvent, logReading } from './utils';
 import {
   type Config,
   loadConfig,
@@ -26,11 +26,12 @@ import { detectLanguage, updateAuthorLanguage, getAuthorLanguage } from './confi
 import * as bluesky from './bluesky';
 import * as misskey from './misskey';
 import * as discord from './discord';
+import * as twitter from './twitter';
 import i18n from './i18n';
 import './App.css';
 
 type AppState = 'idle' | 'loading' | 'running' | 'paused';
-type NoteSource = 'nostr' | 'bluesky' | 'misskey' | 'discord' | 'test';
+type NoteSource = 'nostr' | 'bluesky' | 'misskey' | 'discord' | 'twitter' | 'test';
 
 // Pattern for linkifying text (URLs and nostr: addresses)
 const LINK_PATTERN = /(https?:\/\/[^\s]+|nostr:n(?:pub|sec|profile|event|ote|addr|relay)1[a-z0-9]+)/gi;
@@ -108,6 +109,8 @@ function App() {
   const [postToNostr, setPostToNostr] = useState(true);
   const [postToBluesky, setPostToBluesky] = useState(true);
   const [postToMisskey, setPostToMisskey] = useState(true);
+  const [postToTwitter, setPostToTwitter] = useState(true);
+  const [twitterLists, setTwitterLists] = useState<twitter.TwitterList[]>([]);
   const [blueskyProfile, setBlueskyProfile] = useState<bluesky.BlueskyProfile | null>(null);
   const [misskeyProfile, setMisskeyProfile] = useState<misskey.MisskeyProfile | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -128,6 +131,7 @@ function App() {
   const appStateRef = useRef<AppState>('idle');
   const blueskyPollingRef = useRef<number | null>(null);
   const blueskyLastFetchRef = useRef<string | undefined>(undefined);
+  const twitterPollingRef = useRef<number | null>(null);
   const profilesRef = useRef<Map<string, Profile>>(new Map());
   // Track content that the user has already read (to skip duplicate multi-posts)
   // Map key: content string, value: timestamp when read
@@ -307,6 +311,28 @@ function App() {
     }
   }, [config.sourceMisskey, config.misskeyAccessToken]);
 
+  // Handle X/Twitter OAuth callback on page load
+  useEffect(() => {
+    twitter.handleCallback().then((handled) => {
+      if (handled) {
+        logTwitter('OAuth callback processed successfully');
+        // Load lists after successful auth
+        twitter.getOwnedLists().then((lists) => {
+          setTwitterLists(lists);
+        });
+      }
+    });
+  }, []);
+
+  // Load X/Twitter lists when authenticated
+  useEffect(() => {
+    if (config.sourceTwitter && twitter.isLoggedIn()) {
+      twitter.getOwnedLists().then((lists) => {
+        setTwitterLists(lists);
+      });
+    }
+  }, [config.sourceTwitter]);
+
   // Logout from Bluesky when handle or app key changes
   const blueskyCredentialsRef = useRef({ handle: config.blueskyHandle, appKey: config.blueskyAppKey });
   useEffect(() => {
@@ -404,6 +430,8 @@ function App() {
       authorName = noteToRead.authorName || t('misskeyAddress');
     } else if (noteToRead.source === 'discord') {
       authorName = noteToRead.authorName || 'Discord';
+    } else if (noteToRead.source === 'twitter') {
+      authorName = noteToRead.authorName || t('twitterAddress');
     } else if (noteToRead.source === 'test') {
       authorName = noteToRead.authorName || 'Test';
     } else {
@@ -606,6 +634,52 @@ function App() {
       // Update author language data
       updateAuthorLanguage(message.author.id, message.content);
       logDiscordEvent(message.timestamp, message.author.displayName, message.content);
+
+      // Add to notes and sort by created_at
+      let newNotes = [noteWithRead, ...notesRef.current];
+      newNotes.sort((a, b) => b.created_at - a.created_at);
+      // Keep only first 200 notes (newest)
+      if (newNotes.length > 200) {
+        newNotes = newNotes.slice(0, 200);
+      }
+      notesRef.current = newNotes;
+      setNotes(newNotes);
+
+      // Start running immediately when first note arrives (don't wait for all sources)
+      if (appStateRef.current === 'loading') {
+        log('[app] running!');
+        appStateRef.current = 'running'; // Update ref immediately (state is async)
+        setAppState('running');
+      }
+    }
+  }, []);
+
+  const addTwitterPosts = useCallback((tweets: twitter.TwitterTweet[], isInitial: boolean = false) => {
+    if (tweets.length === 0) return;
+
+    // For initial load, only keep the most recent tweet
+    const tweetsToAdd = isInitial ? [tweets[0]] : tweets;
+
+    for (const tweet of tweetsToAdd) {
+      // Skip if already exists or no text
+      if (!tweet.text || notesRef.current.some((n) => n.id === tweet.id)) {
+        continue;
+      }
+
+      const noteWithRead: NoteWithRead = {
+        id: tweet.id,
+        pubkey: tweet.authorId,
+        content: tweet.text,
+        created_at: Math.floor(new Date(tweet.createdAt).getTime() / 1000),
+        read: false,
+        source: 'twitter',
+        authorName: tweet.author.name || tweet.author.username,
+        authorAvatar: tweet.author.profileImageUrl || undefined,
+      };
+
+      // Update author language data
+      updateAuthorLanguage(tweet.authorId, tweet.text);
+      logTwitterEvent(tweet.createdAt, tweet.author.name || tweet.author.username, tweet.text);
 
       // Add to notes and sort by created_at
       let newNotes = [noteWithRead, ...notesRef.current];
@@ -831,9 +905,44 @@ help()  - Show this help message
       return true;
     };
 
+    // X/Twitter source initialization (polling, like Bluesky)
+    const initTwitter = async (): Promise<boolean> => {
+      if (!config.sourceTwitter || !twitter.isLoggedIn()) return false;
+
+      logTwitter('fetching initial tweet...');
+      let tweets: twitter.TwitterTweet[];
+      if (config.twitterTimelineType === 'list' && config.twitterListId) {
+        tweets = await twitter.getListTweets(config.twitterListId);
+      } else if (config.twitterTimelineType === 'home') {
+        tweets = await twitter.getHomeTimeline();
+      } else {
+        logTwitter('no timeline configured, skipping');
+        return false;
+      }
+
+      logTwitter('tweets:', tweets.length);
+      addTwitterPosts(tweets, true);
+
+      // Start polling every 30 seconds (dedup handled by addTwitterPosts)
+      twitterPollingRef.current = window.setInterval(async () => {
+        let newTweets: twitter.TwitterTweet[];
+        if (config.twitterTimelineType === 'list' && config.twitterListId) {
+          newTweets = await twitter.getListTweets(config.twitterListId);
+        } else {
+          newTweets = await twitter.getHomeTimeline();
+        }
+        if (newTweets.length > 0) {
+          logTwitter('new tweets:', newTweets.length);
+          addTwitterPosts(newTweets);
+        }
+      }, 30000);
+
+      return true;
+    };
+
     try {
       // Run all sources in parallel
-      const results = await Promise.allSettled([initNostr(), initBluesky(), initMisskey(), initDiscord()]);
+      const results = await Promise.allSettled([initNostr(), initBluesky(), initMisskey(), initDiscord(), initTwitter()]);
 
       const hasAnySource = results.some(
         (r) => r.status === 'fulfilled' && r.value === true
@@ -940,6 +1049,9 @@ help()  - Show this help message
     } else if (note.source === 'misskey') {
       // Open in Misskey.io
       window.open(`https://misskey.io/notes/${note.id}`, '_blank');
+    } else if (note.source === 'twitter') {
+      // Open in X/Twitter
+      window.open(`https://x.com/i/status/${note.id}`, '_blank');
     }
   };
 
@@ -957,6 +1069,11 @@ help()  - Show this help message
     misskey.disconnectStream();
     // Stop Discord streaming
     discord.disconnectStream();
+    // Stop Twitter polling
+    if (twitterPollingRef.current) {
+      clearInterval(twitterPollingRef.current);
+      twitterPollingRef.current = null;
+    }
     setAppState('idle');
     notesRef.current = [];
     setNotes([]);
@@ -971,8 +1088,9 @@ help()  - Show this help message
     const canPostNostr = config.sourceNostr && postToNostr && relaysRef.current.length > 0;
     const canPostBluesky = config.sourceBluesky && postToBluesky && config.blueskyAppKey;
     const canPostMisskey = config.sourceMisskey && postToMisskey && config.misskeyAccessToken;
+    const canPostTwitter = config.sourceTwitter && postToTwitter && twitter.isLoggedIn();
 
-    if (!canPostNostr && !canPostBluesky && !canPostMisskey) return;
+    if (!canPostNostr && !canPostBluesky && !canPostMisskey && !canPostTwitter) return;
 
     setIsPosting(true);
 
@@ -1005,6 +1123,13 @@ help()  - Show this help message
       const misskeySuccess = await misskey.createNote(postContent);
       logMisskey('post result:', misskeySuccess ? 'success' : 'failed');
       results.push(misskeySuccess);
+    }
+
+    if (canPostTwitter) {
+      logTwitter('posting:', postContent.slice(0, 50));
+      const twitterSuccess = await twitter.createTweet(postContent);
+      logTwitter('post result:', twitterSuccess ? 'success' : 'failed');
+      results.push(twitterSuccess);
     }
 
     if (results.some((r) => r)) {
@@ -1172,7 +1297,7 @@ help()  - Show this help message
               {isListening ? t('micRecording') : t('mic')}
             </button>
           </div>
-          {(Number(config.sourceNostr) + Number(config.sourceBluesky) + Number(config.sourceMisskey)) >= 2 && (
+          {(Number(config.sourceNostr) + Number(config.sourceBluesky) + Number(config.sourceMisskey) + Number(config.sourceTwitter)) >= 2 && (
             <div className="post-destinations">
               {config.sourceNostr && (
                 <label className="post-dest-checkbox">
@@ -1205,6 +1330,17 @@ help()  - Show this help message
                     disabled={!config.sourceMisskey || !config.misskeyAccessToken}
                   />
                   {t('sourceMisskey')}
+                </label>
+              )}
+              {config.sourceTwitter && (
+                <label className="post-dest-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={postToTwitter}
+                    onChange={(e) => setPostToTwitter(e.target.checked)}
+                    disabled={!config.sourceTwitter || !twitter.isLoggedIn()}
+                  />
+                  {t('sourceTwitter')}
                 </label>
               )}
             </div>
@@ -1476,6 +1612,85 @@ help()  - Show this help message
                       value={config.discordBotUrl}
                       onChange={(e) => updateConfig({ discordBotUrl: e.target.value })}
                     />
+                  </div>
+                )}
+                <label className="config-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={config.sourceTwitter}
+                    onChange={(e) => updateConfig({ sourceTwitter: e.target.checked })}
+                  />
+                  {t('sourceTwitter')}
+                </label>
+                {config.sourceTwitter && (
+                  <div className="config-twitter-inputs">
+                    <div className="config-twitter-auth-row">
+                      <input
+                        type="text"
+                        className="config-input-text"
+                        placeholder={t('twitterClientIdPlaceholder')}
+                        value={config.twitterClientId}
+                        onChange={(e) => updateConfig({ twitterClientId: e.target.value })}
+                      />
+                      {twitter.isLoggedIn() ? (
+                        <button
+                          className="btn btn-small"
+                          onClick={() => {
+                            twitter.logout();
+                            setTwitterLists([]);
+                            updateConfig({ twitterListId: '' });
+                          }}
+                        >
+                          {t('twitterLogout')}
+                        </button>
+                      ) : (
+                        <button
+                          className="btn btn-small"
+                          onClick={() => {
+                            if (config.twitterClientId) {
+                              twitter.startAuth(config.twitterClientId);
+                            }
+                          }}
+                          disabled={!config.twitterClientId}
+                        >
+                          {t('twitterAuthenticate')}
+                        </button>
+                      )}
+                    </div>
+                    <div className="config-label-small">{t('twitterTimelineType')}</div>
+                    <label className="config-radio">
+                      <input
+                        type="radio"
+                        name="twitterTimeline"
+                        checked={config.twitterTimelineType === 'list'}
+                        onChange={() => updateConfig({ twitterTimelineType: 'list' })}
+                      />
+                      {t('twitterTimelineList')}
+                    </label>
+                    {config.twitterTimelineType === 'list' && (
+                      <select
+                        className="config-select"
+                        value={config.twitterListId}
+                        onChange={(e) => updateConfig({ twitterListId: e.target.value })}
+                        disabled={!twitter.isLoggedIn() || twitterLists.length === 0}
+                      >
+                        <option value="">{t('twitterList')}</option>
+                        {twitterLists.map((list) => (
+                          <option key={list.id} value={list.id}>
+                            {list.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <label className="config-radio">
+                      <input
+                        type="radio"
+                        name="twitterTimeline"
+                        checked={config.twitterTimelineType === 'home'}
+                        onChange={() => updateConfig({ twitterTimelineType: 'home' })}
+                      />
+                      {t('twitterTimelineHome')}
+                    </label>
                   </div>
                 )}
               </div>
