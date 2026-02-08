@@ -1,0 +1,53 @@
+new project:I want to add the following X support by Pay-Per-Use API by team:
+- team structure:
+  - product manager:
+    - direct architect and frontend/backend developers
+    - review the specification by architect and the implementation of frontend/backend developers
+    - ask for feedback from the user(me)
+  - architect:
+    - design the overall architecture for X integration in document
+  - frontend developer
+  - backend developer
+
+- X API specifications and hints:
+  - https://claude.ai/share/0d0f5fa6-d816-4d6e-b55f-f724d3fc6967
+- layout:
+  - config dialog:
+    - Nostr
+    - Bluesky
+    - Missskey.io
+    - Discord
+    - X/Twitter [new!]
+      - Client ID:[text box][authenticate button]
+      - Timeline Type:
+        - [*] List
+          - List: [dropdown of available lists]
+        - [ ] Home Timeline
+  - post destinations:
+    - [*] Nostr
+    - [*] Bluesky
+    - [*] Missskey.io
+    - [*] X/Twitter [new!]
+- behavior:
+  - Authentication flow for X/Twitter:
+    - Before authentication with X/Twitter:
+      - List dropdown is disabled and greyed out.
+      - After entering Client ID and clicking authenticate button, user is redirected to X/Twitter OAuth page.
+      - Upon successful authentication, user is redirected back to yomi call back page with an access token.
+        - yomi call back page has a special OAuth query parameter to identify the service as X/Twitter.
+      - yomi call back page saves the access token securely in localStorage.
+      - After saving the access token, the browser jumps back to original yomi page without OAuth query parameters.
+      - post destination checkbox for X/Twitter is disabled.
+    - After authentication with X/Twitter:
+      - the List dropdown is enabled and populated with the user's available lists from X/Twitter.
+      - User can select a list from the dropdown to set the timeline type to that list.
+      - If user selects Home Timeline, the List dropdown is disabled and greyed out again.
+      - Auth button changes to "logout" button, which when clicked, removes the access token from localStorage and reverts the UI to pre-authentication state.
+  - Getting timeline data from X/Twitter:
+    - After authentication, when fetching timeline data:
+      - If Timeline Type is List, use the saved access token to call X/Twitter API to get tweets from the selected list.
+      - If Timeline Type is Home Timeline, use the saved access token to call X/Twitter API to get tweets from the user's home timeline.
+      - The number of fetched tweets is the latest 1 tweet.
+  - Posting to X/Twitter:
+    - when the post destination checkbox for X/Twitter is checked:
+      - when the post button clicked, the message is posted to X/Twitter using the saved access token.
