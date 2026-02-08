@@ -48,6 +48,8 @@ const KEY_TOKEN_EXPIRES_AT = 'x_token_expires_at';
 const KEY_CODE_VERIFIER = 'x_code_verifier';
 const KEY_OAUTH_STATE = 'x_oauth_state';
 const KEY_CLIENT_ID = 'x_client_id';
+const KEY_OWNED_LISTS = 'x_owned_lists';
+const KEY_MY_PROFILE = 'x_my_profile';
 
 // ============================================
 // Restore tokens from localStorage on load
@@ -146,7 +148,12 @@ export async function startAuth(clientId: string): Promise<void> {
  * Checks for ?code= and ?state= in URL, exchanges code for tokens.
  * Returns true if a callback was successfully processed.
  */
+let handleCallbackInProgress = false;
 export async function handleCallback(): Promise<boolean> {
+  if (handleCallbackInProgress) {
+    return false;
+  }
+
   const urlParams = new URLSearchParams(window.location.search);
   const code = urlParams.get('code');
   const state = urlParams.get('state');
@@ -154,6 +161,8 @@ export async function handleCallback(): Promise<boolean> {
   if (!code || !state) {
     return false;
   }
+
+  handleCallbackInProgress = true;
 
   // Verify state matches
   const savedState = localStorage.getItem(KEY_OAUTH_STATE);
@@ -222,6 +231,7 @@ export async function handleCallback(): Promise<boolean> {
     return true;
   } catch (e) {
     console.error('[twitter] handleCallback error:', e);
+    handleCallbackInProgress = false;
     return false;
   }
 }
@@ -296,8 +306,30 @@ export function logout(): void {
   localStorage.removeItem(KEY_CODE_VERIFIER);
   localStorage.removeItem(KEY_OAUTH_STATE);
   localStorage.removeItem(KEY_CLIENT_ID);
+  localStorage.removeItem(KEY_OWNED_LISTS);
+  localStorage.removeItem(KEY_MY_PROFILE);
 
   logTwitter(' logged out');
+}
+
+/**
+ * Get cached owned lists from localStorage.
+ */
+export function getCachedOwnedLists(): TwitterList[] | null {
+  try {
+    const cached = localStorage.getItem(KEY_OWNED_LISTS);
+    return cached ? JSON.parse(cached) : null;
+  } catch { return null; }
+}
+
+/**
+ * Get cached profile from localStorage.
+ */
+export function getCachedProfile(): TwitterUser | null {
+  try {
+    const cached = localStorage.getItem(KEY_MY_PROFILE);
+    return cached ? JSON.parse(cached) : null;
+  } catch { return null; }
 }
 
 /**
@@ -407,6 +439,7 @@ export async function getMyUser(): Promise<TwitterUser | null> {
     };
 
     logTwitter(` getMyUser done: @${result.username}, ${Date.now() - startTime}ms`);
+    localStorage.setItem(KEY_MY_PROFILE, JSON.stringify(result));
     return result;
   } catch (e) {
     console.error('[twitter] getMyUser error:', e);
@@ -452,6 +485,7 @@ export async function getOwnedLists(): Promise<TwitterList[]> {
     }));
 
     logTwitter(` getOwnedLists done: ${result.length} lists, ${Date.now() - startTime}ms`);
+    localStorage.setItem(KEY_OWNED_LISTS, JSON.stringify(result));
     return result;
   } catch (e) {
     console.error('[twitter] getOwnedLists error:', e);
@@ -502,16 +536,19 @@ function parseTweetsResponse(data: Record<string, unknown>): TwitterTweet[] {
  * @param listId - The list ID to fetch tweets from
  * @param sinceId - Only return tweets newer than this ID
  */
-export async function getListTweets(listId: string): Promise<TwitterTweet[]> {
+export async function getListTweets(listId: string, sinceId?: string): Promise<TwitterTweet[]> {
   const startTime = Date.now();
   logTwitter(' getListTweets start');
 
   const params = new URLSearchParams({
-    max_results: '1',
+    max_results: sinceId ? '10' : '1',
     'tweet.fields': 'created_at,text,author_id',
     expansions: 'author_id',
     'user.fields': 'name,username,profile_image_url',
   });
+  if (sinceId) {
+    params.set('since_id', sinceId);
+  }
 
   const res = await authorizedFetch(
     `${X_API}/2/lists/${listId}/tweets?${params.toString()}`
@@ -534,10 +571,10 @@ export async function getListTweets(listId: string): Promise<TwitterTweet[]> {
 }
 
 /**
- * Get the authenticated user's home timeline (reverse chronological).
+ * Get the authenticated user's following timeline (reverse chronological).
  * @param sinceId - Only return tweets newer than this ID
  */
-export async function getHomeTimeline(): Promise<TwitterTweet[]> {
+export async function getHomeTimeline(sinceId?: string): Promise<TwitterTweet[]> {
   const startTime = Date.now();
   logTwitter(' getHomeTimeline start');
 
@@ -551,11 +588,14 @@ export async function getHomeTimeline(): Promise<TwitterTweet[]> {
   }
 
   const params = new URLSearchParams({
-    max_results: '1',
+    max_results: sinceId ? '10' : '1',
     'tweet.fields': 'created_at,text,author_id',
     expansions: 'author_id',
     'user.fields': 'name,username,profile_image_url',
   });
+  if (sinceId) {
+    params.set('since_id', sinceId);
+  }
 
   const res = await authorizedFetch(
     `${X_API}/2/users/${myUserId}/timelines/reverse_chronological?${params.toString()}`

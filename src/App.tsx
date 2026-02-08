@@ -133,6 +133,7 @@ function App() {
   const blueskyPollingRef = useRef<number | null>(null);
   const blueskyLastFetchRef = useRef<string | undefined>(undefined);
   const twitterPollingRef = useRef<number | null>(null);
+  const twitterLastTweetIdRef = useRef<string | undefined>(undefined);
   const profilesRef = useRef<Map<string, Profile>>(new Map());
   // Track content that the user has already read (to skip duplicate multi-posts)
   // Map key: content string, value: timestamp when read
@@ -317,11 +318,9 @@ function App() {
     twitter.handleCallback().then((handled) => {
       if (handled) {
         logTwitter('OAuth callback processed successfully');
-        // Load lists after successful auth
         twitter.getOwnedLists().then((lists) => {
           setTwitterLists(lists);
         });
-        // Load profile after successful auth
         twitter.getMyUser().then((user) => {
           setTwitterProfile(user);
         });
@@ -329,16 +328,28 @@ function App() {
     });
   }, []);
 
-  // Load X/Twitter lists and profile when authenticated
+  // Load X/Twitter lists and profile when authenticated (use cache first, then refresh)
+  const twitterLoadingRef = useRef(false);
   useEffect(() => {
-    if (config.sourceTwitter && twitter.isLoggedIn()) {
-      twitter.getOwnedLists().then((lists) => {
-        setTwitterLists(lists);
+    if (config.sourceTwitter && twitter.isLoggedIn() && !twitterLoadingRef.current) {
+      // Restore from cache immediately
+      const cachedLists = twitter.getCachedOwnedLists();
+      const cachedProfile = twitter.getCachedProfile();
+      if (cachedLists) setTwitterLists(cachedLists);
+      if (cachedProfile) setTwitterProfile(cachedProfile);
+
+      // Refresh from API in background
+      twitterLoadingRef.current = true;
+      Promise.all([
+        twitter.getOwnedLists(),
+        twitter.getMyUser(),
+      ]).then(([lists, user]) => {
+        if (lists.length > 0) setTwitterLists(lists);
+        if (user) setTwitterProfile(user);
+      }).finally(() => {
+        twitterLoadingRef.current = false;
       });
-      twitter.getMyUser().then((user) => {
-        setTwitterProfile(user);
-      });
-    } else {
+    } else if (!config.sourceTwitter) {
       setTwitterProfile(null);
     }
   }, [config.sourceTwitter]);
@@ -932,18 +943,22 @@ help()  - Show this help message
 
       logTwitter('tweets:', tweets.length);
       addTwitterPosts(tweets, true);
+      if (tweets.length > 0) {
+        twitterLastTweetIdRef.current = tweets[0].id;
+      }
 
-      // Start polling every 30 seconds (dedup handled by addTwitterPosts)
+      // Start polling every 30 seconds, fetching only tweets newer than last seen
       twitterPollingRef.current = window.setInterval(async () => {
         let newTweets: twitter.TwitterTweet[];
         if (config.twitterTimelineType === 'list' && config.twitterListId) {
-          newTweets = await twitter.getListTweets(config.twitterListId);
+          newTweets = await twitter.getListTweets(config.twitterListId, twitterLastTweetIdRef.current);
         } else {
-          newTweets = await twitter.getHomeTimeline();
+          newTweets = await twitter.getHomeTimeline(twitterLastTweetIdRef.current);
         }
         if (newTweets.length > 0) {
           logTwitter('new tweets:', newTweets.length);
           addTwitterPosts(newTweets);
+          twitterLastTweetIdRef.current = newTweets[0].id;
         }
       }, 30000);
 
@@ -1084,6 +1099,7 @@ help()  - Show this help message
       clearInterval(twitterPollingRef.current);
       twitterPollingRef.current = null;
     }
+    twitterLastTweetIdRef.current = undefined;
     setAppState('idle');
     notesRef.current = [];
     setNotes([]);
@@ -1145,11 +1161,14 @@ help()  - Show this help message
         setTimeout(async () => {
           let newTweets: twitter.TwitterTweet[];
           if (config.twitterTimelineType === 'list' && config.twitterListId) {
-            newTweets = await twitter.getListTweets(config.twitterListId);
+            newTweets = await twitter.getListTweets(config.twitterListId, twitterLastTweetIdRef.current);
           } else {
-            newTweets = await twitter.getHomeTimeline();
+            newTweets = await twitter.getHomeTimeline(twitterLastTweetIdRef.current);
           }
-          if (newTweets.length > 0) addTwitterPosts(newTweets);
+          if (newTweets.length > 0) {
+            addTwitterPosts(newTweets);
+            twitterLastTweetIdRef.current = newTweets[0].id;
+          }
         }, 2000);
       }
     }
