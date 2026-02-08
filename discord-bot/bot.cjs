@@ -67,9 +67,37 @@ const config = parseArgs();
 const wss = new WebSocketServer({ port: config.port });
 const clients = new Set();
 
-wss.on('connection', (ws) => {
+wss.on('connection', async (ws) => {
   console.log('[ws] Client connected');
   clients.add(ws);
+
+  // Send latest message on connection
+  try {
+    const channel = client.channels.cache.get(config.channel);
+    if (channel) {
+      const messages = await channel.messages.fetch({ limit: 1 });
+      const message = messages.first();
+      if (message && !message.author.bot && message.content && message.content.trim() !== '') {
+        const payload = {
+          type: 'message',
+          id: message.id,
+          channelId: message.channel.id,
+          author: {
+            id: message.author.id,
+            username: message.author.username,
+            displayName: message.member?.displayName || message.author.displayName || message.author.username,
+            avatarUrl: message.author.displayAvatarURL({ size: 128 }) || null,
+          },
+          content: message.content,
+          timestamp: message.createdAt.toISOString(),
+        };
+        console.log(`[ws] Sending initial message: ${payload.author.displayName}: ${payload.content.slice(0, 50)}...`);
+        ws.send(JSON.stringify(payload));
+      }
+    }
+  } catch (err) {
+    console.error('[ws] Failed to fetch initial message:', err.message);
+  }
 
   ws.on('close', () => {
     console.log('[ws] Client disconnected');
