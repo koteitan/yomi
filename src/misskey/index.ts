@@ -1,4 +1,5 @@
 import { logMisskey } from '../utils';
+import { loadString, saveString } from '../utils/storage';
 
 // Use proxy in development to avoid CORS issues
 const MISSKEY_API = import.meta.env.DEV ? '/misskey-api' : 'https://misskey.io/api';
@@ -18,7 +19,9 @@ export interface MisskeyNote {
   createdAt: string;
 }
 
-const TOKEN_KEY = 'misskey_token';
+// localStorage: "yomi:misskey" (legacy unprefixed key kept for read fallback)
+const TOKEN_NAME = 'misskey';
+const LEGACY_TOKEN_KEY = 'misskey_token';
 
 let accessToken: string | null = null;
 
@@ -73,14 +76,10 @@ function clearWatchdog(): void {
 }
 
 // Try to restore token from localStorage on load
-try {
-  const saved = localStorage.getItem(TOKEN_KEY);
-  if (saved) {
-    accessToken = saved;
-    logMisskey(' token restored');
-  }
-} catch (e) {
-  // Ignore errors
+const savedToken = loadString(TOKEN_NAME, LEGACY_TOKEN_KEY);
+if (savedToken) {
+  accessToken = savedToken;
+  logMisskey(' token restored');
 }
 
 /**
@@ -101,7 +100,7 @@ export async function login(token: string): Promise<boolean> {
       return false;
     }
     accessToken = token;
-    localStorage.setItem(TOKEN_KEY, token);
+    saveString(TOKEN_NAME, token);
     logMisskey(' logged in');
     return true;
   } catch (e) {
@@ -115,7 +114,8 @@ export async function login(token: string): Promise<boolean> {
  */
 export function logout(): void {
   accessToken = null;
-  localStorage.removeItem(TOKEN_KEY);
+  // Store an empty token (not removeItem) so a leftover legacy key is not read back
+  saveString(TOKEN_NAME, '');
   disconnectStream();
 }
 

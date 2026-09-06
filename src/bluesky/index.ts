@@ -1,4 +1,5 @@
 import { logBluesky } from '../utils';
+import { hasKey, loadJson, saveJson, loadLegacyJson } from '../utils/storage';
 
 const PUBLIC_API = 'https://public.api.bsky.app';
 const BSKY_API = 'https://bsky.social';
@@ -25,19 +26,31 @@ interface Session {
   refreshJwt: string;
 }
 
-const SESSION_KEY = 'bluesky_session';
+// localStorage: "yomi:bluesky" (legacy unprefixed key kept for read fallback)
+const SESSION_NAME = 'bluesky';
+const LEGACY_SESSION_KEY = 'bluesky_session';
+
+/** Read the stored session, falling back to the legacy key only if the new one is absent. */
+function loadSession(): Session | null {
+  if (hasKey(SESSION_NAME)) return loadJson<Session>(SESSION_NAME);
+  return loadLegacyJson<Session>(LEGACY_SESSION_KEY);
+}
+
+/**
+ * Persist the session. Storing null records "logged out" explicitly so that a
+ * leftover legacy key is not read back on the next load.
+ */
+function storeSession(value: Session | null): void {
+  saveJson(SESSION_NAME, value);
+}
 
 let session: Session | null = null;
 
 // Try to restore session from localStorage on load
-try {
-  const saved = localStorage.getItem(SESSION_KEY);
-  if (saved) {
-    session = JSON.parse(saved);
-    logBluesky(' session restored for:', session?.handle);
-  }
-} catch (e) {
-  // Ignore errors
+const restoredSession = loadSession();
+if (restoredSession) {
+  session = restoredSession;
+  logBluesky(' session restored for:', session?.handle);
 }
 
 /**
@@ -65,7 +78,7 @@ export async function login(handle: string, appPassword: string, force = false):
 
       if (res.ok) {
         session = await res.json();
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        storeSession(session);
         logBluesky(' logged in as:', session?.handle);
         return true;
       }
@@ -102,7 +115,7 @@ export async function login(handle: string, appPassword: string, force = false):
  */
 export function logout(): void {
   session = null;
-  localStorage.removeItem(SESSION_KEY);
+  storeSession(null);
 }
 
 /**
@@ -134,12 +147,12 @@ export async function refreshSession(): Promise<boolean> {
       logBluesky(' refreshSession failed:', res.status);
       // Clear invalid session
       session = null;
-      localStorage.removeItem(SESSION_KEY);
+      storeSession(null);
       return false;
     }
 
     session = await res.json();
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    storeSession(session);
     logBluesky(' refreshSession: success, handle:', session?.handle);
     return true;
   } catch (e) {

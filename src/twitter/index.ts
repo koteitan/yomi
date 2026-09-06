@@ -1,4 +1,5 @@
 import { logTwitter } from '../utils';
+import { loadJson, saveJson, loadLegacyString, loadLegacyJson } from '../utils/storage';
 
 // Use Vite proxy in dev, CORS proxy worker in production (configurable via VITE_X_API_PROXY_URL)
 const X_API = import.meta.env.DEV
@@ -41,34 +42,89 @@ let tokenExpiresAt: number | null = null;
 let clientId: string | null = null;
 let myUserId: string | null = null;
 
-// localStorage keys
-const KEY_ACCESS_TOKEN = 'x_access_token';
-const KEY_REFRESH_TOKEN = 'x_refresh_token';
-const KEY_TOKEN_EXPIRES_AT = 'x_token_expires_at';
-const KEY_CODE_VERIFIER = 'x_code_verifier';
-const KEY_OAUTH_STATE = 'x_oauth_state';
-const KEY_CLIENT_ID = 'x_client_id';
-const KEY_OWNED_LISTS = 'x_owned_lists';
-const KEY_MY_PROFILE = 'x_my_profile';
+// ============================================
+// localStorage
+// ============================================
+// Auth values are kept together in "yomi:x", cached API results in
+// "yomi:x-cache". The old unprefixed keys below are read only as a migration
+// fallback and are never written or deleted.
+
+const AUTH_NAME = 'x';
+const CACHE_NAME = 'x-cache';
+
+const LEGACY_KEY_ACCESS_TOKEN = 'x_access_token';
+const LEGACY_KEY_REFRESH_TOKEN = 'x_refresh_token';
+const LEGACY_KEY_TOKEN_EXPIRES_AT = 'x_token_expires_at';
+const LEGACY_KEY_CODE_VERIFIER = 'x_code_verifier';
+const LEGACY_KEY_OAUTH_STATE = 'x_oauth_state';
+const LEGACY_KEY_CLIENT_ID = 'x_client_id';
+const LEGACY_KEY_OWNED_LISTS = 'x_owned_lists';
+const LEGACY_KEY_MY_PROFILE = 'x_my_profile';
+
+interface XAuthState {
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  tokenExpiresAt?: number | null;
+  codeVerifier?: string | null;
+  oauthState?: string | null;
+  clientId?: string | null;
+}
+
+interface XCacheState {
+  ownedLists?: TwitterList[] | null;
+  myProfile?: TwitterUser | null;
+}
+
+/** Read the auth object; assemble it from the legacy keys when the new key is absent. */
+function loadAuth(): XAuthState {
+  const stored = loadJson<XAuthState>(AUTH_NAME);
+  if (stored) return stored;
+  const legacyExpires = loadLegacyString(LEGACY_KEY_TOKEN_EXPIRES_AT);
+  return {
+    accessToken: loadLegacyString(LEGACY_KEY_ACCESS_TOKEN),
+    refreshToken: loadLegacyString(LEGACY_KEY_REFRESH_TOKEN),
+    tokenExpiresAt: legacyExpires ? Number(legacyExpires) : null,
+    codeVerifier: loadLegacyString(LEGACY_KEY_CODE_VERIFIER),
+    oauthState: loadLegacyString(LEGACY_KEY_OAUTH_STATE),
+    clientId: loadLegacyString(LEGACY_KEY_CLIENT_ID),
+  };
+}
+
+/** Merge `patch` into the stored auth object; fields set to null are dropped. */
+function patchAuth(patch: XAuthState): void {
+  const next: XAuthState = { ...loadAuth(), ...patch };
+  for (const k of Object.keys(next) as (keyof XAuthState)[]) {
+    if (next[k] === null || next[k] === undefined) delete next[k];
+  }
+  saveJson(AUTH_NAME, next);
+}
+
+/** Read the cache object; assemble it from the legacy keys when the new key is absent. */
+function loadCache(): XCacheState {
+  const stored = loadJson<XCacheState>(CACHE_NAME);
+  if (stored) return stored;
+  return {
+    ownedLists: loadLegacyJson<TwitterList[]>(LEGACY_KEY_OWNED_LISTS),
+    myProfile: loadLegacyJson<TwitterUser>(LEGACY_KEY_MY_PROFILE),
+  };
+}
+
+/** Merge `patch` into the stored cache object. */
+function patchCache(patch: XCacheState): void {
+  saveJson(CACHE_NAME, { ...loadCache(), ...patch });
+}
 
 // ============================================
 // Restore tokens from localStorage on load
 // ============================================
 
-try {
-  const savedAccess = localStorage.getItem(KEY_ACCESS_TOKEN);
-  const savedRefresh = localStorage.getItem(KEY_REFRESH_TOKEN);
-  const savedExpires = localStorage.getItem(KEY_TOKEN_EXPIRES_AT);
-  const savedClientId = localStorage.getItem(KEY_CLIENT_ID);
-  if (savedAccess) {
-    accessToken = savedAccess;
-    refreshToken = savedRefresh;
-    tokenExpiresAt = savedExpires ? Number(savedExpires) : null;
-    clientId = savedClientId;
-    logTwitter(' token restored');
-  }
-} catch (e) {
-  // Ignore errors
+const restoredAuth = loadAuth();
+if (restoredAuth.accessToken) {
+  accessToken = restoredAuth.accessToken;
+  refreshToken = restoredAuth.refreshToken ?? null;
+  tokenExpiresAt = restoredAuth.tokenExpiresAt ?? null;
+  clientId = restoredAuth.clientId ?? null;
+  logTwitter(' token restored');
 }
 
 // ============================================
@@ -123,9 +179,7 @@ export async function startAuth(clientId: string): Promise<void> {
   const state = generateCodeVerifier(); // reuse as random state
 
   // Save temporary values and client ID
-  localStorage.setItem(KEY_CODE_VERIFIER, codeVerifier);
-  localStorage.setItem(KEY_OAUTH_STATE, state);
-  localStorage.setItem(KEY_CLIENT_ID, clientId);
+  patchAuth({ codeVerifier, oauthState: state, clientId });
 
   const redirectUri = window.location.origin + '/yomi/';
 
@@ -165,14 +219,15 @@ export async function handleCallback(): Promise<boolean> {
   handleCallbackInProgress = true;
 
   // Verify state matches
-  const savedState = localStorage.getItem(KEY_OAUTH_STATE);
+  const savedAuth = loadAuth();
+  const savedState = savedAuth.oauthState ?? null;
   if (state !== savedState) {
     logTwitter(' handleCallback: state mismatch, ignoring');
     return false;
   }
 
-  const savedVerifier = localStorage.getItem(KEY_CODE_VERIFIER);
-  const savedClientId = localStorage.getItem(KEY_CLIENT_ID);
+  const savedVerifier = savedAuth.codeVerifier ?? null;
+  const savedClientId = savedAuth.clientId ?? null;
 
   if (!savedVerifier || !savedClientId) {
     logTwitter(' handleCallback: missing code_verifier or client_id');
@@ -213,15 +268,15 @@ export async function handleCallback(): Promise<boolean> {
     tokenExpiresAt = Date.now() + data.expires_in * 1000;
     clientId = savedClientId;
 
-    localStorage.setItem(KEY_ACCESS_TOKEN, accessToken!);
-    if (refreshToken) {
-      localStorage.setItem(KEY_REFRESH_TOKEN, refreshToken);
-    }
-    localStorage.setItem(KEY_TOKEN_EXPIRES_AT, String(tokenExpiresAt));
-
-    // Clean up temporary values
-    localStorage.removeItem(KEY_CODE_VERIFIER);
-    localStorage.removeItem(KEY_OAUTH_STATE);
+    const authPatch: XAuthState = {
+      accessToken,
+      tokenExpiresAt,
+      // Clean up temporary values
+      codeVerifier: null,
+      oauthState: null,
+    };
+    if (refreshToken) authPatch.refreshToken = refreshToken;
+    patchAuth(authPatch);
 
     // Remove query params from URL
     const cleanUrl = window.location.origin + window.location.pathname;
@@ -276,11 +331,9 @@ export async function refreshAccessToken(): Promise<boolean> {
     refreshToken = data.refresh_token || refreshToken;
     tokenExpiresAt = Date.now() + data.expires_in * 1000;
 
-    localStorage.setItem(KEY_ACCESS_TOKEN, accessToken!);
-    if (refreshToken) {
-      localStorage.setItem(KEY_REFRESH_TOKEN, refreshToken);
-    }
-    localStorage.setItem(KEY_TOKEN_EXPIRES_AT, String(tokenExpiresAt));
+    const authPatch: XAuthState = { accessToken, tokenExpiresAt };
+    if (refreshToken) authPatch.refreshToken = refreshToken;
+    patchAuth(authPatch);
 
     logTwitter(' refreshAccessToken: success');
     return true;
@@ -291,7 +344,7 @@ export async function refreshAccessToken(): Promise<boolean> {
 }
 
 /**
- * Logout: remove all X/Twitter keys from localStorage and clear module state
+ * Logout: clear the X/Twitter localStorage entries and the module state
  */
 export function logout(): void {
   accessToken = null;
@@ -300,14 +353,10 @@ export function logout(): void {
   clientId = null;
   myUserId = null;
 
-  localStorage.removeItem(KEY_ACCESS_TOKEN);
-  localStorage.removeItem(KEY_REFRESH_TOKEN);
-  localStorage.removeItem(KEY_TOKEN_EXPIRES_AT);
-  localStorage.removeItem(KEY_CODE_VERIFIER);
-  localStorage.removeItem(KEY_OAUTH_STATE);
-  localStorage.removeItem(KEY_CLIENT_ID);
-  localStorage.removeItem(KEY_OWNED_LISTS);
-  localStorage.removeItem(KEY_MY_PROFILE);
+  // Store empty objects instead of removing them, so that leftover legacy keys
+  // are not read back as a session on the next load
+  saveJson(AUTH_NAME, {});
+  saveJson(CACHE_NAME, {});
 
   logTwitter(' logged out');
 }
@@ -316,20 +365,14 @@ export function logout(): void {
  * Get cached owned lists from localStorage.
  */
 export function getCachedOwnedLists(): TwitterList[] | null {
-  try {
-    const cached = localStorage.getItem(KEY_OWNED_LISTS);
-    return cached ? JSON.parse(cached) : null;
-  } catch { return null; }
+  return loadCache().ownedLists ?? null;
 }
 
 /**
  * Get cached profile from localStorage.
  */
 export function getCachedProfile(): TwitterUser | null {
-  try {
-    const cached = localStorage.getItem(KEY_MY_PROFILE);
-    return cached ? JSON.parse(cached) : null;
-  } catch { return null; }
+  return loadCache().myProfile ?? null;
 }
 
 /**
@@ -439,7 +482,7 @@ export async function getMyUser(): Promise<TwitterUser | null> {
     };
 
     logTwitter(` getMyUser done: @${result.username}, ${Date.now() - startTime}ms`);
-    localStorage.setItem(KEY_MY_PROFILE, JSON.stringify(result));
+    patchCache({ myProfile: result });
     return result;
   } catch (e) {
     console.error('[twitter] getMyUser error:', e);
@@ -485,7 +528,7 @@ export async function getOwnedLists(): Promise<TwitterList[]> {
     }));
 
     logTwitter(` getOwnedLists done: ${result.length} lists, ${Date.now() - startTime}ms`);
-    localStorage.setItem(KEY_OWNED_LISTS, JSON.stringify(result));
+    patchCache({ ownedLists: result });
     return result;
   } catch (e) {
     console.error('[twitter] getOwnedLists error:', e);

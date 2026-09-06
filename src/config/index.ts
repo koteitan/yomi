@@ -1,3 +1,5 @@
+import { loadJson, saveJson } from '../utils/storage';
+
 export type ReadingLanguageMode = 'browser' | 'autoAuthor' | 'autoNote' | 'specific';
 export type DisplayLanguageMode = 'browser' | 'specific';
 export type ReadingLimitMode = 'none' | 'limit';
@@ -34,7 +36,9 @@ export interface Config {
   theme: ThemeMode;
 }
 
-const CONFIG_KEY = 'yomi-config';
+// localStorage: "yomi:config" (legacy unprefixed key kept for read fallback)
+const CONFIG_NAME = 'config';
+const LEGACY_CONFIG_KEY = 'yomi-config';
 
 export const defaultConfig: Config = {
   readingLanguageMode: 'browser',
@@ -67,24 +71,15 @@ export const defaultConfig: Config = {
 };
 
 export function loadConfig(): Config {
-  try {
-    const stored = localStorage.getItem(CONFIG_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return { ...defaultConfig, ...parsed };
-    }
-  } catch (e) {
-    console.error('Failed to load config:', e);
+  const parsed = loadJson<Partial<Config>>(CONFIG_NAME, LEGACY_CONFIG_KEY);
+  if (parsed) {
+    return { ...defaultConfig, ...parsed };
   }
   return { ...defaultConfig };
 }
 
 export function saveConfig(config: Config): void {
-  try {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-  } catch (e) {
-    console.error('Failed to save config:', e);
-  }
+  saveJson(CONFIG_NAME, config);
 }
 
 // Common languages for combo box

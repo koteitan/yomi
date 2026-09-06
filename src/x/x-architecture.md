@@ -72,9 +72,8 @@ Vite proxy config (`vite.config.ts`):
 1. User enters Client ID and clicks "Authenticate"
    ↓
 2. yomi generates code_verifier + code_challenge (PKCE)
-   Saves code_verifier, state, client_id to localStorage:
-     x_code_verifier = <random>
-     x_oauth_state   = <random>
+   Merges code_verifier, state, client_id into the localStorage key "yomi:x":
+     { codeVerifier: <random>, oauthState: <random>, clientId: <client id> }
    ↓
 3. window.location.href = "https://x.com/i/oauth2/authorize?..."
    (full page redirect, no CORS issue)
@@ -85,18 +84,18 @@ Vite proxy config (`vite.config.ts`):
    https://koteitan.github.io/yomi/?code=xxx&state=yyy
    ↓
 6. yomi detects ?code= and ?state= in URL on page load
-   Checks: state === localStorage.getItem('x_oauth_state')
+   Checks: state === (JSON in "yomi:x").oauthState
    If match → this is an X/Twitter callback
    ↓
 7. yomi POSTs to api.x.com/2/oauth2/token:
    { grant_type: "authorization_code", code, client_id, code_verifier, redirect_uri }
    ↓
 8. Receives { access_token, refresh_token, expires_in }
-   Saves to localStorage:
-     x_access_token    = <token>
-     x_refresh_token   = <token>
-     x_token_expires_at = Date.now() + expires_in * 1000
-   Cleans up: removes x_code_verifier, x_oauth_state
+   Merges into the localStorage key "yomi:x":
+     accessToken    = <token>
+     refreshToken   = <token>
+     tokenExpiresAt = Date.now() + expires_in * 1000
+   Cleans up: drops codeVerifier, oauthState from that object
    ↓
 9. Removes ?code= and ?state= from URL (history.replaceState)
    UI updates to authenticated state
@@ -119,16 +118,34 @@ https://localhost:5173/yomi/
 
 ### Token Storage (localStorage)
 
-| Key | Value | Lifetime |
-|-----|-------|----------|
-| `x_access_token` | OAuth2 access token | ~2 hours |
-| `x_refresh_token` | OAuth2 refresh token | Long-lived |
-| `x_token_expires_at` | Expiry timestamp (ms) | Updated on refresh |
-| `x_client_id` | OAuth2 Client ID | Persistent |
-| `x_code_verifier` | PKCE code verifier | Temporary (during auth) |
-| `x_oauth_state` | CSRF state | Temporary (during auth) |
-| `x_owned_lists` | Cached owned lists (JSON) | Persistent (cache) |
-| `x_my_profile` | Cached user profile (JSON) | Persistent (cache) |
+Every koteitan GitHub Pages app shares the `https://koteitan.github.io` origin,
+so all keys are namespaced with the repository name (`yomi:`). X/Twitter uses two
+keys, each holding a single JSON object.
+
+`yomi:x` — auth state:
+
+| Field | Value | Lifetime |
+|-------|-------|----------|
+| `accessToken` | OAuth2 access token | ~2 hours |
+| `refreshToken` | OAuth2 refresh token | Long-lived |
+| `tokenExpiresAt` | Expiry timestamp (ms) | Updated on refresh |
+| `clientId` | OAuth2 Client ID | Persistent |
+| `codeVerifier` | PKCE code verifier | Temporary (during auth) |
+| `oauthState` | CSRF state | Temporary (during auth) |
+
+`yomi:x-cache` — cached API results (kept apart from the auth state):
+
+| Field | Value | Lifetime |
+|-------|-------|----------|
+| `ownedLists` | Cached owned lists | Persistent (cache) |
+| `myProfile` | Cached user profile | Persistent (cache) |
+
+Migration: when `yomi:x` / `yomi:x-cache` are absent, the old unprefixed keys
+(`x_access_token`, `x_refresh_token`, `x_token_expires_at`, `x_client_id`,
+`x_code_verifier`, `x_oauth_state`, `x_owned_lists`, `x_my_profile`) are read as
+a fallback. Writes always go to the new keys, and the old keys are never deleted.
+Logout stores empty objects in the new keys rather than removing them, so a
+leftover legacy key is not read back as a session.
 
 ### Token Refresh
 
@@ -138,7 +155,7 @@ On API call → check if token expires soon (< 5 min)
 POST api.x.com/2/oauth2/token:
   { grant_type: "refresh_token", refresh_token, client_id }
   ↓
-Save new access_token + refresh_token to localStorage
+Save new access_token + refresh_token into "yomi:x"
 ```
 
 ## 3. Data Flow: Timeline Reading
